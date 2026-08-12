@@ -1,3 +1,24 @@
+# MathRecap
+
+MathRecap is an interactive skill tree for the Hungarian secondary-school mathematics curriculum (grades 5-12). Instead of following school years, it maps the prerequisite relationships between 190 concepts, so learners can see what they know, what is available next, and what each topic unlocks.
+
+The interface and curriculum content are currently in Hungarian. Learners set their own mastery level, inspect prerequisites and follow-up topics, and can create printable AI-assisted practice worksheets when an OpenRouter model is configured. Generated examples can follow the learner's stated interests, making practice more personally relevant.
+
+**Current scope:** MathRecap is a single-user solution. Mastery levels, learner profile, interests, and model choice are stored in the user's browser rather than in an account system or backend database.
+
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/skill-tree.png" alt="MathRecap interactive mathematics skill tree" width="100%">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/skill-detail.png" alt="A MathRecap skill detail panel showing prerequisites and unlocked topics" width="49%">
+  <img src="docs/screenshots/worksheet.png" alt="MathRecap practice worksheet setup page" width="49%">
+</p>
+
+## Magyar dokumentáció
+
 # Matematika Skillfa (5–12. évfolyam)
 
 Ez a dokumentum a magyar gimnáziumi matematika tananyagát **tech tree / skillfa** formájában rendezi
@@ -10,7 +31,7 @@ később válik egy 12. osztályos készség előfeltételévé.
 
 ## Helyi POC futtatása
 
-**Követelmény:** Node.js 20 vagy újabb. A POC egyetlen, helyi felhasználóra készült: a tudásszintek, profil és kiválasztott modell a böngésző `localStorage` tárában maradnak.
+**Követelmény:** Node.js 20 vagy újabb. A POC jelenleg egyetlen, helyi felhasználóra készült: a tudásszintek, profil, érdeklődési körök és kiválasztott modell a böngésző `localStorage` tárában maradnak. Nincs felhasználói fiók vagy háttéradatbázis.
 
 ```powershell
 npm install
@@ -30,7 +51,7 @@ npm run build:data        # a tantervi adatok újraépítése és ellenőrzése
 
 ### Feladatlap és nyomtatás
 
-Egy készség paneljének **Gyakorlás** gombja külön feladatlap-oldalt nyit. Egyetlen szabad szöveges kérésben lehet megadni a gyakorlás fókuszát; az **Új feladatlap** új generálást indít, nem fűzi hozzá a korábbihoz. A **Feladatlap** és **Megoldókulcs** külön nézet, mindkettőnek saját nyomtatás gombja van. Nyomtatás előtt válaszd ki a kívánt nézetet; a nyomtatási stílus elrejti az alkalmazás vezérlőit. Generált feladatlap-előzmény nincs, és feladatmegoldás sem módosítja automatikusan a tudásszintet.
+Egy készség paneljének **Gyakorlás** gombja külön feladatlap-oldalt nyit. Egyetlen szabad szöveges kérésben lehet megadni a gyakorlás fókuszát; a generált példák a tanuló megadott érdeklődési köreihez is igazodhatnak. Az **Új feladatlap** új generálást indít, nem fűzi hozzá a korábbihoz. A **Feladatlap** és **Megoldókulcs** külön nézet, mindkettőnek saját nyomtatás gombja van. Nyomtatás előtt válaszd ki a kívánt nézetet; a nyomtatási stílus elrejti az alkalmazás vezérlőit. Generált feladatlap-előzmény nincs, és feladatmegoldás sem módosítja automatikusan a tudásszintet.
 
 ### Biztonsági határ
 
