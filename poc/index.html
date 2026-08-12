@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MathRecap — készségfa (prototípus)</title>
+<style>
+  :root {
+    --bg: #101218;
+    --bg2: #171a22;
+    --line: #262b36;
+    --fg: #e6e8ee;
+    --dim: #8b93a7;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font: 14px/1.5 "Segoe UI", system-ui, sans-serif;
+    overflow: hidden;
+  }
+
+  header {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 0 14px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--line);
+    position: relative;
+    z-index: 3;
+  }
+  .brand { font-weight: 600; letter-spacing: .3px; }
+  .brand span { color: var(--dim); font-weight: 400; font-size: 12px; }
+
+  #search {
+    width: 210px;
+    padding: 5px 9px;
+    border-radius: 5px;
+    border: 1px solid var(--line);
+    background: #0c0e13;
+    color: var(--fg);
+    font: inherit;
+  }
+  #search:focus { outline: none; border-color: #4a5568; }
+
+  .chips { display: flex; gap: 5px; }
+  .chip {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px 3px 6px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--dim);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .chip:hover { color: var(--fg); border-color: #3a4152; }
+  .chip i { width: 9px; height: 9px; border-radius: 50%; display: block; }
+
+  .spacer { flex: 1; }
+  .hint { color: var(--dim); font-size: 12px; }
+  .hint b { color: #aab2c5; font-weight: 600; }
+  .icon-button {
+    width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 5px;
+    background: transparent; color: var(--dim); font: 17px/1 system-ui; cursor: pointer;
+  }
+  .icon-button:hover { color: var(--fg); border-color: #3a4152; }
+
+  #stage { position: absolute; inset: 48px 0 0 0; }
+  canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+  canvas.dragging { cursor: grabbing; }
+
+  #minimap {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    width: 220px;
+    height: 110px;
+    background: rgba(12,14,19,.85);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  #legend {
+    position: absolute;
+    left: 12px;
+    bottom: 12px;
+    background: rgba(12,14,19,.85);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 9px 11px;
+    font-size: 12px;
+    color: var(--dim);
+    line-height: 1.9;
+  }
+  #legend b { color: var(--fg); font-weight: 600; display: block; margin-bottom: 3px; }
+  #legend .row { display: flex; align-items: center; gap: 7px; }
+  #legend .sw { width: 26px; height: 13px; border-radius: 3px; border: 1.5px solid #0B84D6; }
+
+  #tip {
+    position: absolute;
+    pointer-events: none;
+    background: #0c0e13;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 5px 9px;
+    font-size: 12px;
+    max-width: 260px;
+    display: none;
+    z-index: 4;
+  }
+  #tip .t { color: var(--dim); }
+
+  #panel {
+    position: absolute;
+    top: 48px;
+    right: 0;
+    bottom: 0;
+    width: 380px;
+    background: var(--bg2);
+    border-left: 1px solid var(--line);
+    padding: 16px 18px 24px;
+    overflow-y: auto;
+    transform: translateX(100%);
+    transition: transform .18s ease;
+    z-index: 2;
+  }
+  #panel.open { transform: none; }
+  #panel h2 { margin: 0 0 2px; font-size: 17px; }
+  #panel .sub { color: var(--dim); font-size: 12px; margin-bottom: 14px; }
+  #panel .close {
+    position: absolute; top: 12px; right: 14px;
+    background: none; border: none; color: var(--dim);
+    font-size: 20px; cursor: pointer; line-height: 1;
+  }
+  #panel .close:hover { color: var(--fg); }
+  .block { margin: 16px 0; }
+  .block > .lbl {
+    font-size: 11px; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--dim); margin-bottom: 6px;
+  }
+  .ai { border-left: 2px solid #E8A33D; padding-left: 10px; }
+  .ai .lbl { color: #E8A33D; }
+  .ai em { color: var(--dim); font-style: normal; font-size: 12px; }
+  .usefulness-text { color: #d9deea; font-size: 13px; line-height: 1.5; white-space: pre-line; }
+  .usefulness-error { color: #d98b45; font-size: 12px; margin-top: 8px; }
+  .usefulness-error .text-button { margin-top: 0; }
+  .text-button { margin-top: 8px; padding: 0; border: 0; background: none; color: #e8a33d; font: inherit; font-size: 12px; cursor: pointer; }
+  .text-button:disabled { color: var(--dim); cursor: not-allowed; }
+
+  .dep { display: flex; align-items: center; gap: 8px; padding: 3px 0; cursor: pointer; }
+  .dep:hover .nm { color: #fff; text-decoration: underline; }
+  .dep .nm { font-size: 13px; }
+  .dep .id { color: var(--dim); font-size: 11px; font-family: ui-monospace, Consolas, monospace; }
+  .pips { display: flex; gap: 2px; flex: none; }
+  .pips i { width: 6px; height: 6px; border-radius: 1px; background: #2c313d; display: block; }
+
+  .slider { display: flex; gap: 4px; margin-top: 4px; }
+  .slider button {
+    flex: 1; padding: 7px 0; font: inherit; font-size: 12px;
+    background: #0c0e13; color: var(--dim);
+    border: 1px solid var(--line); border-radius: 4px; cursor: pointer;
+  }
+  .slider button:hover { color: var(--fg); }
+  .slider button.on { background: #2c6fbb; border-color: #2c6fbb; color: #fff; }
+  .lvltext { color: var(--dim); font-size: 12px; margin-top: 6px; min-height: 18px; }
+
+  .actions { display: flex; gap: 8px; margin-top: 20px; }
+  .actions button {
+    flex: 1; padding: 9px; font: inherit; border-radius: 5px; cursor: pointer;
+    background: #2c6fbb; border: 1px solid #2c6fbb; color: #fff;
+  }
+  .actions button.ghost { background: transparent; border-color: var(--line); color: var(--dim); }
+  .actions button.ghost:hover { color: var(--fg); border-color: #3a4152; }
+
+  .locked { color: #d98b45; font-size: 12px; margin-top: 10px; }
+
+  dialog {
+    width: min(560px, calc(100vw - 32px)); max-height: min(720px, calc(100vh - 32px));
+    color: var(--fg); background: var(--bg2); border: 1px solid #3a4152; border-radius: 7px;
+    padding: 0; box-shadow: 0 24px 70px rgba(0,0,0,.55);
+  }
+  dialog::backdrop { background: rgba(4,6,10,.72); }
+  .modal-body { padding: 22px; overflow-y: auto; }
+  .modal-body h2 { margin: 0 0 8px; font-size: 20px; }
+  .modal-body p { color: var(--dim); margin: 6px 0; }
+  .field { display: grid; gap: 5px; margin: 14px 0; }
+  .field label { color: #cdd3e0; font-size: 13px; }
+  .field input, .field textarea, .field select {
+    width: 100%; padding: 8px 9px; border: 1px solid var(--line); border-radius: 4px;
+    background: #0c0e13; color: var(--fg); font: inherit;
+  }
+  .model-picker { position: relative; }
+  .model-results {
+    position: absolute; z-index: 2; top: calc(100% + 3px); left: 0; right: 0;
+    max-height: 248px; overflow-y: auto; border: 1px solid #3a4152; border-radius: 4px;
+    background: #101218; box-shadow: 0 12px 28px rgba(0,0,0,.4);
+  }
+  .model-option { padding: 7px 9px; cursor: pointer; color: #cdd3e0; font-size: 13px; }
+  .model-option:hover, .model-option[aria-selected="true"] { background: #243e5d; color: #fff; }
+  .model-option code { color: var(--dim); font-size: 11px; }
+  .model-empty { padding: 8px 9px; color: var(--dim); font-size: 13px; }
+  .selected-model { color: #cdd3e0; font-size: 12px; }
+  .selected-model code { color: var(--dim); }
+  .field textarea { min-height: 70px; resize: vertical; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+  .modal-actions button { padding: 8px 12px; font: inherit; border: 1px solid #2c6fbb; border-radius: 4px; background: #2c6fbb; color: #fff; cursor: pointer; }
+  .modal-actions button.ghost { background: transparent; color: var(--dim); border-color: var(--line); }
+  .modal-actions button.ghost:hover { color: var(--fg); border-color: #3a4152; }
+  .calibration-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+  .calibration-card { display: flex; align-items: flex-start; gap: 8px; padding: 9px; border: 1px solid var(--line); border-radius: 5px; cursor: pointer; }
+  .calibration-card:has(input:checked) { border-color: #4d91d6; background: rgba(44,111,187,.14); }
+  .calibration-card input { margin-top: 3px; }
+  .calibration-card code { color: var(--dim); font-size: 11px; }
+  .review-list { max-height: 240px; overflow-y: auto; margin-top: 12px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .review-row { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; font-size: 13px; }
+  .status { color: var(--dim); font-size: 12px; min-height: 18px; }
+  @media (max-width: 700px) { .hint { display: none; } .calibration-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">MathRecap <span>· készségfa prototípus</span></div>
+  <input id="search" placeholder="keresés…  ( / )" autocomplete="off">
+  <div class="chips" id="chips"></div>
+  <div class="spacer"></div>
+  <div class="hint"><b>F</b> teljes fa · <b>G</b> csak kapunode · <b>1–6</b> ág · <b>Esc</b> vissza</div>
+  <button class="icon-button" id="settings-button" title="Beállítások" aria-label="Beállítások">⚙</button>
+</header>
+
+<div id="stage">
+  <canvas id="c"></canvas>
+  <canvas id="minimap" width="440" height="220"></canvas>
+  <div id="legend">
+    <b>Tudásszint</b>
+    <div class="row"><span class="sw" style="background:transparent"></span> 0 — nem ismerem</div>
+    <div class="row"><span class="sw" style="background:rgba(11,132,214,.35)"></span> 2 — értem</div>
+    <div class="row"><span class="sw" style="background:#0B84D6"></span> 4 — biztos tudom</div>
+    <div class="row"><span class="sw" style="background:#1a1d24;border-color:#333a48;opacity:.45"></span> zárolt</div>
+  </div>
+  <div id="tip"></div>
+</div>
+
+<aside id="panel">
+  <button class="close" title="Bezárás (Esc)">×</button>
+  <div id="panel-body"></div>
+</aside>
+
+<dialog id="onboarding-dialog" aria-labelledby="onboarding-title"><div class="modal-body" id="onboarding-body"></div></dialog>
+<dialog id="settings-dialog" aria-labelledby="settings-title"><div class="modal-body" id="settings-body"></div></dialog>
+
+<script src="data.js"></script>
+<script type="module" src="tree.js"></script>
+</body>
+</html>

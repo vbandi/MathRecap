@@ -1,0 +1,14 @@
+{
+  "name": "mathrecap",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:data": "node poc/build-data.mjs",
+    "start": "node server.mjs",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "katex": "^0.16.22",
+    "zod": "^4.1.12"
+  }
+}
