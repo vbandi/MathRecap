@@ -1,5 +1,6 @@
 export const LOCAL_STATE_KEY = "mathrecap.local-state";
 export const LOCAL_STATE_VERSION = 2;
+export const DEFAULT_MODEL_ID = "openai/gpt-5.6-luna";
 
 const EMPTY_PROFILE = Object.freeze({ erdeklodes: "", sajat: "", cel: "" });
 
@@ -43,7 +44,7 @@ export function emptyLocalState(skillIds) {
     version: LOCAL_STATE_VERSION,
     mastery: masteryFor(skillIds),
     profile: profileFor(),
-    selectedModel: null,
+    selectedModel: DEFAULT_MODEL_ID,
     onboardingComplete: false,
     usefulnessCache: {},
   };
@@ -58,7 +59,7 @@ function migrateLocalState(payload, skillIds) {
     version: LOCAL_STATE_VERSION,
     mastery: masteryFor(skillIds, source.mastery),
     profile: profileFor(source.profile),
-    selectedModel: typeof source.selectedModel === "string" && source.selectedModel ? source.selectedModel : null,
+    selectedModel: typeof source.selectedModel === "string" && source.selectedModel ? source.selectedModel : DEFAULT_MODEL_ID,
     onboardingComplete: source.onboardingComplete === true,
     usefulnessCache: usefulnessCacheFor(source.usefulnessCache),
   };

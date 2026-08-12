@@ -39,7 +39,7 @@ $env:OPENROUTER_API_KEY = "sajat-openrouter-kulcs"
 npm start
 ```
 
-Az alkalmazás alapértelmezett címe `http://127.0.0.1:3000`. API-kulcs nélkül is használható a fa, az onboarding, a profil és a kézi tudásszint-kezelés; az AI-műveletek érthető konfigurációs hibát jeleznek. Az OpenRouter-modellt a fejléc **Beállítások** ablakában lehet kiválasztani a betöltött modellkatalógusból. A választás helyben megmarad, de AI-kérés csak kiválasztott modellel indítható.
+Az alkalmazás alapértelmezett címe `http://127.0.0.1:3000`. API-kulcs nélkül is használható a fa, az onboarding, a profil és a kézi tudásszint-kezelés; az AI-műveletek érthető konfigurációs hibát jeleznek. Az AI-műveletek alapértelmezett modellje az `openai/gpt-5.6-luna`. Az OpenRouter-modellt a fejléc **Beállítások** ablakában lehet másik modellre állítani a betöltött modellkatalógusból; a választás helyben megmarad.
 
 Hasznos parancsok:
 

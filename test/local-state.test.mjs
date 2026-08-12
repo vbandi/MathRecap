@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cacheUsefulness, calibrationProposal, LOCAL_STATE_KEY, LOCAL_STATE_VERSION, loadLocalState, recomputeLocks, saveLocalState, setManualMastery, undoCalibrationProposal, updateProfileAndModel, usefulnessDisplayState, usefulnessFingerprint } from "../poc/state.js";
+import { cacheUsefulness, calibrationProposal, DEFAULT_MODEL_ID, LOCAL_STATE_KEY, LOCAL_STATE_VERSION, loadLocalState, recomputeLocks, saveLocalState, setManualMastery, undoCalibrationProposal, updateProfileAndModel, usefulnessDisplayState, usefulnessFingerprint } from "../poc/state.js";
 
 function memoryStorage(initial = {}) {
   const values = new Map(Object.entries(initial));
@@ -19,9 +19,13 @@ test("local state defaults all skills and safely replaces corrupt storage", () =
   assert.equal(defaults.version, LOCAL_STATE_VERSION);
   assert.deepEqual(defaults.mastery, { ROOT: 0, CHILD: 0, OTHER: 0 });
   assert.deepEqual(defaults.profile, { erdeklodes: "", sajat: "", cel: "" });
+  assert.equal(defaults.selectedModel, "openai/gpt-5.6-luna");
 
   const corrupt = loadLocalState(memoryStorage({ [LOCAL_STATE_KEY]: "not json" }), skillIds);
   assert.deepEqual(corrupt, defaults);
+
+  const unset = loadLocalState(memoryStorage({ [LOCAL_STATE_KEY]: JSON.stringify({ version: 2, selectedModel: null }) }), skillIds);
+  assert.equal(unset.selectedModel, DEFAULT_MODEL_ID);
 });
 
 test("prior local state migrates and retains only known, valid mastery values", () => {
