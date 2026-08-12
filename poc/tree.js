@@ -158,6 +158,9 @@ let usefulnessRefreshFailedSkillId = null;
 let onlyGateways = false;
 let matches = new Set();
 let highlightedAncestors = new Set(), highlightedDescendants = new Set();
+const VISIBILITY_FADE_MS = 150;
+let visibilityFade = null;
+let visibilityAnimationFrame = null;
 
 let initialMeasure = true;
 function resize() {
@@ -237,11 +240,36 @@ function nameLines(n) {
 function visibility(n) {
   if (highlightedAncestors.size || highlightedDescendants.size) {
     const benne = n === hover || n === selected || highlightedAncestors.has(n.id) || highlightedDescendants.has(n.id);
-    if (!benne) return 0.1;
+    if (!benne) return 0.4;
   }
   if (matches.size && !matches.has(n.id)) return 0.15;
   if (onlyGateways && !n.gateway) return 0.08;
   return 1;
+}
+
+function displayedVisibility(n) {
+  if (!visibilityFade) return visibility(n);
+  const progress = Math.min(1, (performance.now() - visibilityFade.startedAt) / VISIBILITY_FADE_MS);
+  const from = visibilityFade.from.get(n.id);
+  const to = visibilityFade.to.get(n.id);
+  return from + (to - from) * progress;
+}
+
+function requestVisibilityDraw() {
+  if (visibilityAnimationFrame !== null) return;
+  visibilityAnimationFrame = requestAnimationFrame(() => {
+    visibilityAnimationFrame = null;
+    draw();
+  });
+}
+
+function beginVisibilityFade(from) {
+  visibilityFade = {
+    startedAt: performance.now(),
+    from,
+    to: new Map(nodes.map((n) => [n.id, visibility(n)])),
+  };
+  requestVisibilityDraw();
 }
 
 function draw() {
@@ -264,7 +292,7 @@ function draw() {
 
   // élek
   for (const e of edges) {
-    const a = Math.min(visibility(e.from), visibility(e.to));
+    const a = Math.min(displayedVisibility(e.from), displayedVisibility(e.to));
     let color = `rgba(150,160,180,${0.3 * a})`, vastag = 1.2;
     const kiemelt = (highlightedAncestors.has(e.from.id) || e.from === hover || e.from === selected) &&
                     (highlightedAncestors.has(e.to.id) || e.to === hover || e.to === selected);
@@ -288,7 +316,7 @@ function draw() {
   // csomópontok
   const labels = view.z >= LABEL_THRESHOLD;
   for (const n of nodes) {
-    const a = visibility(n);
+    const a = displayedVisibility(n);
     if (a < 0.02) continue;
     ctx.globalAlpha = a;
     const x = n.x - NW / 2, y = n.y - NH / 2;
@@ -350,21 +378,19 @@ function draw() {
       ctx.textAlign = "left";
     }
 
-    if (!n.locked) {
-      for (let i = 0; i < 5; i++) {
-        ctx.fillStyle = i <= n.mastery ? (filled ? muted : info.color) : "rgba(255,255,255,.13)";
-        ctx.fillRect(x + 10 + i * 9, y + NH - 12, 6, 5);
-      }
-    } else {
-      ctx.fillStyle = "#3b4254";
-      ctx.font = "11px 'Segoe UI', system-ui, sans-serif";
-      ctx.fillText("zárolt", x + 10, y + NH - 8);
+    for (let i = 0; i < 5; i++) {
+      ctx.fillStyle = i <= n.mastery ? (filled ? muted : info.color) : "rgba(255,255,255,.13)";
+      ctx.fillRect(x + 10 + i * 9, y + NH - 12, 6, 5);
     }
     ctx.globalAlpha = 1;
   }
 
   ctx.restore();
   drawMinimap();
+  if (visibilityFade) {
+    if (performance.now() - visibilityFade.startedAt >= VISIBILITY_FADE_MS) visibilityFade = null;
+    else requestVisibilityDraw();
+  }
 }
 
 function drawMinimap() {
@@ -510,8 +536,10 @@ function traverse(n, field) {
   return ki;
 }
 function refreshHighlight(n) {
+  const from = new Map(nodes.map((node) => [node.id, displayedVisibility(node)]));
   highlightedAncestors = n ? traverse(n, "prerequisites") : new Set();
   highlightedDescendants = n ? traverse(n, "descendants") : new Set();
+  beginVisibilityFade(from);
 }
 
 // ---------------------------------------------------------------- panel
@@ -584,9 +612,8 @@ function renderPanel() {
 
     <div class="block"><div class="lbl">Mennyire tudod?</div>
       <div class="slider">${[0, 1, 2, 3, 4]
-        .map((i) => `<button data-lvl="${i}" class="${!n.locked && n.mastery === i ? "on" : ""}"
-          ${n.locked ? "disabled" : ""}>${i}</button>`).join("")}</div>
-      <div class="lvltext">${n.locked ? "—" : `<b>${MASTERY_LEVEL_NAMES[n.mastery]}</b> · „${MASTERY_LEVEL_DESCRIPTIONS[n.mastery]}"`}</div></div>
+        .map((i) => `<button data-lvl="${i}" class="${n.mastery === i ? "on" : ""}">${i}</button>`).join("")}</div>
+      <div class="lvltext"><b>${MASTERY_LEVEL_NAMES[n.mastery]}</b> · „${MASTERY_LEVEL_DESCRIPTIONS[n.mastery]}"</div></div>
 
     <div class="actions">
       <button data-act="path">Ezt akarom tanulni</button>
