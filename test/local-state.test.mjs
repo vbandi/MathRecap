@@ -9,16 +9,16 @@ function memoryStorage(initial = {}) {
 
 const skillIds = ["ROOT", "CHILD", "OTHER"];
 const graph = [
-  { id: "ROOT", elofeltetel: [] },
-  { id: "CHILD", elofeltetel: ["ROOT"] },
-  { id: "OTHER", elofeltetel: [] },
+  { id: "ROOT", prerequisites: [] },
+  { id: "CHILD", prerequisites: ["ROOT"] },
+  { id: "OTHER", prerequisites: [] },
 ];
 
 test("local state defaults all skills and safely replaces corrupt storage", () => {
   const defaults = loadLocalState(memoryStorage(), skillIds);
   assert.equal(defaults.version, LOCAL_STATE_VERSION);
   assert.deepEqual(defaults.mastery, { ROOT: 0, CHILD: 0, OTHER: 0 });
-  assert.deepEqual(defaults.profile, { erdeklodes: "", sajat: "", cel: "" });
+  assert.deepEqual(defaults.profile, { interests: "", background: "", goal: "" });
   assert.equal(defaults.selectedModel, "openai/gpt-5.6-luna");
 
   const corrupt = loadLocalState(memoryStorage({ [LOCAL_STATE_KEY]: "not json" }), skillIds);
@@ -28,18 +28,18 @@ test("local state defaults all skills and safely replaces corrupt storage", () =
   assert.equal(unset.selectedModel, DEFAULT_MODEL_ID);
 });
 
-test("prior local state migrates and retains only known, valid mastery values", () => {
+test("stored local state retains only known, valid mastery values", () => {
   const storage = memoryStorage({ [LOCAL_STATE_KEY]: JSON.stringify({
-    version: 0,
-    szintek: { ROOT: 4, CHILD: 2, REMOVED: 3 },
-    profile: { erdeklodes: "zene" },
+    version: LOCAL_STATE_VERSION,
+    mastery: { ROOT: 4, CHILD: 2, REMOVED: 3 },
+    profile: { interests: "zene" },
     selectedModel: "vendor/model",
     onboardingComplete: true,
     usefulnessCache: { ROOT: { text: "cached" } },
   }) });
   const state = loadLocalState(storage, skillIds);
   assert.deepEqual(state.mastery, { ROOT: 4, CHILD: 2, OTHER: 0 });
-  assert.deepEqual(state.profile, { erdeklodes: "zene", sajat: "", cel: "" });
+  assert.deepEqual(state.profile, { interests: "zene", background: "", goal: "" });
   assert.equal(state.selectedModel, "vendor/model");
   assert.equal(state.onboardingComplete, true);
   assert.deepEqual(state.usefulnessCache, {});
@@ -66,9 +66,9 @@ test("manual mastery persists and locks derive from persisted values without mut
 
 test("calibration marks selected skills at level 4, prerequisites at level 2, and review undo restores the baseline", () => {
   const calibrationGraph = [
-    { id: "ROOT", elofeltetel: [] },
-    { id: "MIDDLE", elofeltetel: ["ROOT"] },
-    { id: "TARGET", elofeltetel: ["MIDDLE"] },
+    { id: "ROOT", prerequisites: [] },
+    { id: "MIDDLE", prerequisites: ["ROOT"] },
+    { id: "TARGET", prerequisites: ["MIDDLE"] },
   ];
   const baseline = { ROOT: 1, MIDDLE: 0, TARGET: 3 };
   const proposed = calibrationProposal(calibrationGraph, baseline, ["TARGET"]);
@@ -80,11 +80,11 @@ test("calibration marks selected skills at level 4, prerequisites at level 2, an
 
 test("usefulness cache is fingerprinted and profile or model changes invalidate it", () => {
   let state = loadLocalState(memoryStorage(), skillIds);
-  state = updateProfileAndModel(state, { erdeklodes: "zene", sajat: "", cel: "érettségi" }, "vendor/model-a");
+  state = updateProfileAndModel(state, { interests: "zene", background: "", goal: "érettségi" }, "vendor/model-a");
   state = cacheUsefulness(state, "ROOT", "Kapcsolódik a zenéhez.");
   assert.equal(state.usefulnessCache.ROOT.fingerprint, usefulnessFingerprint(state.profile, state.selectedModel));
 
-  state = updateProfileAndModel(state, { erdeklodes: "sport", sajat: "", cel: "érettségi" }, "vendor/model-a");
+  state = updateProfileAndModel(state, { interests: "sport", background: "", goal: "érettségi" }, "vendor/model-a");
   assert.deepEqual(state.usefulnessCache, {});
   state = cacheUsefulness(state, "ROOT", "Új indoklás.");
   state = updateProfileAndModel(state, state.profile, "vendor/model-b");
@@ -93,7 +93,7 @@ test("usefulness cache is fingerprinted and profile or model changes invalidate 
 
 test("a failed usefulness refresh keeps a current cached explanation visible and retryable", () => {
   let state = loadLocalState(memoryStorage(), skillIds);
-  state = updateProfileAndModel(state, { erdeklodes: "zene", sajat: "", cel: "érettségi" }, "vendor/model");
+  state = updateProfileAndModel(state, { interests: "zene", background: "", goal: "érettségi" }, "vendor/model");
   state = cacheUsefulness(state, "ROOT", "A ritmusok arányainak megértésében is segít.");
 
   assert.deepEqual(usefulnessDisplayState(state, "ROOT", true), {

@@ -2,18 +2,18 @@
 
 import { cacheUsefulness, calibrationProposal, loadLocalState, recomputeLocks, saveLocalState, setManualMastery, undoCalibrationProposal, updateProfileAndModel, usefulnessDisplayState } from "./state.js";
 
-const AGAK = {
-  LOG: { nev: "Logika", szin: "#6C5CE7", sotetSzoveg: false },
-  SZA: { nev: "Számok", szin: "#0B84D6", sotetSzoveg: false },
-  ALG: { nev: "Algebra", szin: "#00A085", sotetSzoveg: false },
-  FUG: { nev: "Függvények", szin: "#E8A33D", sotetSzoveg: true },
-  GEO: { nev: "Geometria", szin: "#D94F45", sotetSzoveg: false },
-  ESE: { nev: "Esély", szin: "#C2559E", sotetSzoveg: false },
+const BRANCHES = {
+  LOG: { name: "Logika", color: "#6C5CE7", darkText: false },
+  SZA: { name: "Számok", color: "#0B84D6", darkText: false },
+  ALG: { name: "Algebra", color: "#00A085", darkText: false },
+  FUG: { name: "Függvények", color: "#E8A33D", darkText: true },
+  GEO: { name: "Geometria", color: "#D94F45", darkText: false },
+  ESE: { name: "Esély", color: "#C2559E", darkText: false },
 };
-const AG_SORREND = ["LOG", "SZA", "ALG", "FUG", "GEO", "ESE"];
+const BRANCH_ORDER = ["LOG", "SZA", "ALG", "FUG", "GEO", "ESE"];
 
-const SZINT_NEV = ["nem ismerem", "hallottam róla", "értem", "megy", "biztos tudom"];
-const SZINT_HORGONY = [
+const MASTERY_LEVEL_NAMES = ["nem ismerem", "hallottam róla", "értem", "megy", "biztos tudom"];
+const MASTERY_LEVEL_DESCRIPTIONS = [
   "nem tudom, mi ez",
   "rémlik, de nem tudnám elmagyarázni",
   "el tudom magyarázni, de feladatnál elakadok",
@@ -24,8 +24,8 @@ const SZINT_HORGONY = [
 const NW = 176, NH = 64;          // csomópont
 const SLOT_W = 204, SLOT_H = 124; // rács
 const AG_GAP = 72;
-const SAV_TETEJE = 54;            // hely az ágfeliratnak
-const CIMKE_KUSZOB = 0.5;         // az egyetlen zoom-küszöb
+const BRANCH_HEADER_HEIGHT = 54;            // hely az ágfeliratnak
+const LABEL_THRESHOLD = 0.5;         // az egyetlen zoom-küszöb
 
 // ---------------------------------------------------------------- adatok
 
@@ -33,91 +33,91 @@ const nodes = window.TREE_NODES;
 const byId = new Map(nodes.map((n) => [n.id, n]));
 
 for (const n of nodes) {
-  n.utodok = [];
-  n.szint = 0;
-  n.zarolt = false;
+  n.descendants = [];
+  n.mastery = 0;
+  n.locked = false;
 }
 for (const n of nodes) {
-  for (const p of n.elofeltetel) byId.get(p).utodok.push(n.id);
+  for (const p of n.prerequisites) byId.get(p).descendants.push(n.id);
 }
 
-// Réteg = leghosszabb út a gyökerektől; egyben topologikus sorrend.
+// Réteg = leghosszabb út a gyökerektől; egyben topologikus order.
 const topoSorrend = (function () {
-  const bejovo = new Map(nodes.map((n) => [n.id, n.elofeltetel.length]));
-  const sor = nodes.filter((n) => n.elofeltetel.length === 0).map((n) => n.id);
+  const bejovo = new Map(nodes.map((n) => [n.id, n.prerequisites.length]));
+  const row = nodes.filter((n) => n.prerequisites.length === 0).map((n) => n.id);
   const out = [];
-  for (const n of nodes) n.reteg = 0;
-  while (sor.length) {
-    const id = sor.shift();
+  for (const n of nodes) n.layer = 0;
+  while (row.length) {
+    const id = row.shift();
     out.push(id);
-    for (const u of byId.get(id).utodok) {
+    for (const u of byId.get(id).descendants) {
       const un = byId.get(u);
-      un.reteg = Math.max(un.reteg, byId.get(id).reteg + 1);
+      un.layer = Math.max(un.layer, byId.get(id).layer + 1);
       const maradek = bejovo.get(u) - 1;
       bejovo.set(u, maradek);
-      if (maradek === 0) sor.push(u);
+      if (maradek === 0) row.push(u);
     }
   }
   if (out.length !== nodes.length) console.warn("Kör a gráfban!");
   return out;
 })();
 
-const MAX_RETEG = Math.max(...nodes.map((n) => n.reteg));
+const MAX_RETEG = Math.max(...nodes.map((n) => n.layer));
 
 // ---------------------------------------------------------------- elrendezés
 
-let vilagSzeles = 0;
-const vilagMagas = (MAX_RETEG + 1) * SLOT_H + SAV_TETEJE + 40;
-const savok = [];
+let worldWidth = 0;
+const worldHeight = (MAX_RETEG + 1) * SLOT_H + BRANCH_HEADER_HEIGHT + 40;
+const bands = [];
 
-(function elrendezes() {
+(function layout() {
   let x = 0;
-  for (const ag of AG_SORREND) {
-    const tagok = nodes.filter((n) => n.ag === ag);
-    const sorok = [];
-    for (const n of tagok) (sorok[n.reteg] ??= []).push(n);
+  for (const branch of BRANCH_ORDER) {
+    const members = nodes.filter((n) => n.branch === branch);
+    const rows = [];
+    for (const n of members) (rows[n.layer] ??= []).push(n);
 
     // Barycenter-simítás: a csomópont az előzményei/utódai átlagos oszlopa köré kerül.
-    const oszlop = new Map(tagok.map((n) => [n.id, 0]));
-    const ujraszamol = () => {
-      for (const sor of sorok) if (sor) sor.forEach((n, i) => oszlop.set(n.id, i));
+    const column = new Map(members.map((n) => [n.id, 0]));
+    const recalculate = () => {
+      for (const row of rows) if (row) row.forEach((n, i) => column.set(n.id, i));
     };
-    ujraszamol();
-    const atlag = (n, mezo) => {
-      const relevans = n[mezo].filter((id) => oszlop.has(id));
-      if (!relevans.length) return oszlop.get(n.id);
-      return relevans.reduce((a, id) => a + oszlop.get(id), 0) / relevans.length;
+    recalculate();
+    const average = (n, field) => {
+      const relevans = n[field].filter((id) => column.has(id));
+      if (!relevans.length) return column.get(n.id);
+      return relevans.reduce((a, id) => a + column.get(id), 0) / relevans.length;
     };
     for (let pass = 0; pass < 4; pass++) {
-      const lefele = pass % 2 === 0;
-      const indexek = [...sorok.keys()];
-      for (const r of lefele ? indexek : indexek.reverse()) {
-        if (!sorok[r]) continue;
-        sorok[r].sort((a, b) => atlag(a, lefele ? "elofeltetel" : "utodok") - atlag(b, lefele ? "elofeltetel" : "utodok"));
-        ujraszamol();
+      const downward = pass % 2 === 0;
+      const indices = [...rows.keys()];
+      for (const r of downward ? indices : indices.reverse()) {
+        if (!rows[r]) continue;
+        rows[r].sort((a, b) => average(a, downward ? "prerequisites" : "descendants") - average(b, downward ? "prerequisites" : "descendants"));
+        recalculate();
       }
     }
 
-    const szelesseg = Math.max(...sorok.filter(Boolean).map((s) => s.length));
-    for (const sor of sorok) {
-      if (!sor) continue;
-      const eltolas = ((szelesseg - sor.length) / 2) * SLOT_W;
-      sor.forEach((n, i) => {
-        n.x = x + eltolas + i * SLOT_W + SLOT_W / 2;
-        n.y = SAV_TETEJE + n.reteg * SLOT_H + SLOT_H / 2;
+    const width = Math.max(...rows.filter(Boolean).map((s) => s.length));
+    for (const row of rows) {
+      if (!row) continue;
+      const offset = ((width - row.length) / 2) * SLOT_W;
+      row.forEach((n, i) => {
+        n.x = x + offset + i * SLOT_W + SLOT_W / 2;
+        n.y = BRANCH_HEADER_HEIGHT + n.layer * SLOT_H + SLOT_H / 2;
       });
     }
 
-    savok.push({ ag, x, w: szelesseg * SLOT_W });
-    x += szelesseg * SLOT_W + AG_GAP;
+    bands.push({ branch, x, w: width * SLOT_W });
+    x += width * SLOT_W + AG_GAP;
   }
-  vilagSzeles = x - AG_GAP;
+  worldWidth = x - AG_GAP;
 })();
 
-const elek = [];
+const edges = [];
 for (const n of nodes) {
-  for (const p of n.elofeltetel) {
-    elek.push({ from: byId.get(p), to: n, kereszt: byId.get(p).ag !== n.ag });
+  for (const p of n.prerequisites) {
+    edges.push({ from: byId.get(p), to: n, crossBranch: byId.get(p).branch !== n.branch });
   }
 }
 
@@ -130,15 +130,15 @@ function persistLocalState() {
   localState = saveLocalState(window.localStorage, localState, skillIds);
 }
 
-function frissitZarolas() {
+function refreshLocks() {
   const locks = recomputeLocks(nodes, localState.mastery);
   for (const n of nodes) {
-    n.szint = localState.mastery[n.id];
-    n.zarolt = locks[n.id];
+    n.mastery = localState.mastery[n.id];
+    n.locked = locks[n.id];
   }
 }
 persistLocalState();
-frissitZarolas();
+refreshLocks();
 
 // ---------------------------------------------------------------- vászon
 
@@ -152,15 +152,15 @@ const panelBody = document.getElementById("panel-body");
 
 let view = { x: 0, y: 0, z: 1 };
 let dpr = 1, W = 0, H = 0;
-let hover = null, kivalasztott = null;
+let hover = null, selected = null;
 let usefulnessFallbackSkillId = null;
 let usefulnessRefreshFailedSkillId = null;
-let csakKapu = false;
-let talalatok = new Set();
-let kiemeltFel = new Set(), kiemeltLe = new Set();
+let onlyGateways = false;
+let matches = new Set();
+let highlightedAncestors = new Set(), highlightedDescendants = new Set();
 
-let elsoMeres = true;
-function meret() {
+let initialMeasure = true;
+function resize() {
   dpr = window.devicePixelRatio || 1;
   W = cv.clientWidth;
   H = cv.clientHeight;
@@ -168,34 +168,34 @@ function meret() {
   cv.width = Math.round(W * dpr);
   cv.height = Math.round(H * dpr);
   // A vászon 0×0-ként is betöltődhet (rejtett fül); az első valódi mérésnél illesztünk.
-  if (elsoMeres) { elsoMeres = false; kezdoNezet(); }
-  else rajzol();
+  if (initialMeasure) { initialMeasure = false; initialView(); }
+  else draw();
 }
-new ResizeObserver(meret).observe(cv);
+new ResizeObserver(resize).observe(cv);
 
-function kepernyore() {
+function fitToScreen() {
   if (!W || !H) return;
   const pad = 60;
-  const z = Math.min((W - pad * 2) / vilagSzeles, (H - pad * 2) / vilagMagas);
+  const z = Math.min((W - pad * 2) / worldWidth, (H - pad * 2) / worldHeight);
   view.z = z;
-  view.x = (W - vilagSzeles * z) / 2;
-  view.y = (H - vilagMagas * z) / 2;
-  rajzol();
+  view.x = (W - worldWidth * z) / 2;
+  view.y = (H - worldHeight * z) / 2;
+  draw();
 }
 
 // A teljes fa áttekintő zoomon olvashatatlan; induláskor ezért a címkeküszöb fölött kezdünk.
-function kezdoNezet() {
+function initialView() {
   if (!W || !H) return;
   view.z = 0.58;
-  view.x = W / 2 - (vilagSzeles / 2) * view.z;
+  view.x = W / 2 - (worldWidth / 2) * view.z;
   view.y = 24;
-  rajzol();
+  draw();
 }
 
 // ---------------------------------------------------------------- rajzolás
 
-function agSzinRGBA(ag, a) {
-  const h = AGAK[ag].szin;
+function branchColorRgba(branch, a) {
+  const h = BRANCHES[branch].color;
   const r = parseInt(h.slice(1, 3), 16), g = parseInt(h.slice(3, 5), 16), b = parseInt(h.slice(5, 7), 16);
   return `rgba(${r},${g},${b},${a})`;
 }
@@ -212,39 +212,39 @@ function rrect(c, x, y, w, h, r) {
 }
 
 const sorokCache = new Map();
-function nevSorok(n) {
+function nameLines(n) {
   if (sorokCache.has(n.id)) return sorokCache.get(n.id);
   ctx.font = "12.5px 'Segoe UI', system-ui, sans-serif";
   const max = NW - 20;
-  const szavak = n.nev.split(" ");
-  const sorok = [];
+  const szavak = n.name.split(" ");
+  const rows = [];
   let akt = "";
   for (const sz of szavak) {
     const proba = akt ? akt + " " + sz : sz;
-    if (ctx.measureText(proba).width > max && akt) { sorok.push(akt); akt = sz; }
+    if (ctx.measureText(proba).width > max && akt) { rows.push(akt); akt = sz; }
     else akt = proba;
-    if (sorok.length === 2) break;
+    if (rows.length === 2) break;
   }
-  if (sorok.length < 2 && akt) sorok.push(akt);
-  if (sorok.length === 2 && ctx.measureText(sorok[1]).width > max - 10) {
-    while (sorok[1].length > 4 && ctx.measureText(sorok[1] + "…").width > max) sorok[1] = sorok[1].slice(0, -1);
-    sorok[1] += "…";
+  if (rows.length < 2 && akt) rows.push(akt);
+  if (rows.length === 2 && ctx.measureText(rows[1]).width > max - 10) {
+    while (rows[1].length > 4 && ctx.measureText(rows[1] + "…").width > max) rows[1] = rows[1].slice(0, -1);
+    rows[1] += "…";
   }
-  sorokCache.set(n.id, sorok);
-  return sorok;
+  sorokCache.set(n.id, rows);
+  return rows;
 }
 
-function lathatosag(n) {
-  if (kiemeltFel.size || kiemeltLe.size) {
-    const benne = n === hover || n === kivalasztott || kiemeltFel.has(n.id) || kiemeltLe.has(n.id);
+function visibility(n) {
+  if (highlightedAncestors.size || highlightedDescendants.size) {
+    const benne = n === hover || n === selected || highlightedAncestors.has(n.id) || highlightedDescendants.has(n.id);
     if (!benne) return 0.1;
   }
-  if (talalatok.size && !talalatok.has(n.id)) return 0.15;
-  if (csakKapu && !n.kapu) return 0.08;
+  if (matches.size && !matches.has(n.id)) return 0.15;
+  if (onlyGateways && !n.gateway) return 0.08;
   return 1;
 }
 
-function rajzol() {
+function draw() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
   ctx.save();
@@ -252,30 +252,30 @@ function rajzol() {
   ctx.scale(view.z, view.z);
 
   // ágsávok
-  for (const s of savok) {
-    ctx.fillStyle = agSzinRGBA(s.ag, 0.035);
-    ctx.fillRect(s.x, 0, s.w, vilagMagas);
-    ctx.fillStyle = agSzinRGBA(s.ag, 0.55);
+  for (const s of bands) {
+    ctx.fillStyle = branchColorRgba(s.branch, 0.035);
+    ctx.fillRect(s.x, 0, s.w, worldHeight);
+    ctx.fillStyle = branchColorRgba(s.branch, 0.55);
     ctx.font = "600 26px 'Segoe UI', system-ui, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText(AGAK[s.ag].nev.toUpperCase(), s.x + s.w / 2, 34);
+    ctx.fillText(BRANCHES[s.branch].name.toUpperCase(), s.x + s.w / 2, 34);
   }
   ctx.textAlign = "left";
 
   // élek
-  for (const e of elek) {
-    const a = Math.min(lathatosag(e.from), lathatosag(e.to));
-    let szin = `rgba(150,160,180,${0.3 * a})`, vastag = 1.2;
-    const kiemelt = (kiemeltFel.has(e.from.id) || e.from === hover || e.from === kivalasztott) &&
-                    (kiemeltFel.has(e.to.id) || e.to === hover || e.to === kivalasztott);
-    const utodEl = (kiemeltLe.has(e.to.id)) &&
-                   (kiemeltLe.has(e.from.id) || e.from === hover || e.from === kivalasztott);
-    if (kiemelt) { szin = "rgba(120,170,255,.9)"; vastag = 2; }
-    else if (utodEl) { szin = "rgba(232,163,61,.85)"; vastag = 2; }
+  for (const e of edges) {
+    const a = Math.min(visibility(e.from), visibility(e.to));
+    let color = `rgba(150,160,180,${0.3 * a})`, vastag = 1.2;
+    const kiemelt = (highlightedAncestors.has(e.from.id) || e.from === hover || e.from === selected) &&
+                    (highlightedAncestors.has(e.to.id) || e.to === hover || e.to === selected);
+    const utodEl = (highlightedDescendants.has(e.to.id)) &&
+                   (highlightedDescendants.has(e.from.id) || e.from === hover || e.from === selected);
+    if (kiemelt) { color = "rgba(120,170,255,.9)"; vastag = 2; }
+    else if (utodEl) { color = "rgba(232,163,61,.85)"; vastag = 2; }
 
-    ctx.strokeStyle = szin;
+    ctx.strokeStyle = color;
     ctx.lineWidth = vastag;
-    ctx.setLineDash(e.kereszt ? [6, 5] : []);
+    ctx.setLineDash(e.crossBranch ? [6, 5] : []);
     const y1 = e.from.y + NH / 2, y2 = e.to.y - NH / 2;
     const k = Math.min(60, Math.max(24, (y2 - y1) / 2));
     ctx.beginPath();
@@ -286,15 +286,15 @@ function rajzol() {
   ctx.setLineDash([]);
 
   // csomópontok
-  const cimkek = view.z >= CIMKE_KUSZOB;
+  const labels = view.z >= LABEL_THRESHOLD;
   for (const n of nodes) {
-    const a = lathatosag(n);
+    const a = visibility(n);
     if (a < 0.02) continue;
     ctx.globalAlpha = a;
     const x = n.x - NW / 2, y = n.y - NH / 2;
-    const info = AGAK[n.ag];
+    const info = BRANCHES[n.branch];
 
-    if (n.zarolt) {
+    if (n.locked) {
       rrect(ctx, x, y, NW, NH, 8);
       ctx.fillStyle = "#14161c";
       ctx.fill();
@@ -303,41 +303,41 @@ function rajzol() {
       ctx.stroke();
     } else {
       rrect(ctx, x, y, NW, NH, 8);
-      ctx.fillStyle = n.szint === 0 ? "#181b23" : agSzinRGBA(n.ag, 0.14 + (n.szint / 4) * 0.86);
+      ctx.fillStyle = n.mastery === 0 ? "#181b23" : branchColorRgba(n.branch, 0.14 + (n.mastery / 4) * 0.86);
       ctx.fill();
-      ctx.strokeStyle = info.szin;
-      ctx.lineWidth = n.kapu ? 2.6 : 1.4;
+      ctx.strokeStyle = info.color;
+      ctx.lineWidth = n.gateway ? 2.6 : 1.4;
       ctx.stroke();
     }
-    if (talalatok.has(n.id)) {
+    if (matches.has(n.id)) {
       rrect(ctx, x - 4, y - 4, NW + 8, NH + 8, 11);
       ctx.strokeStyle = "#ffd479";
       ctx.lineWidth = 2;
       ctx.stroke();
     }
-    if (n === kivalasztott) {
+    if (n === selected) {
       rrect(ctx, x - 5, y - 5, NW + 10, NH + 10, 12);
       ctx.strokeStyle = "#fff";
       ctx.lineWidth = 2;
       ctx.stroke();
     }
 
-    const teli = !n.zarolt && n.szint >= 3;
-    const fo = n.zarolt ? "#5d6579" : teli ? (info.sotetSzoveg ? "#2B2B2B" : "#ffffff") : "#ced4e2";
-    const halvany = n.zarolt ? "#4b5266" : teli ? (info.sotetSzoveg ? "rgba(43,43,43,.65)" : "rgba(255,255,255,.7)") : "#818aa0";
+    const filled = !n.locked && n.mastery >= 3;
+    const primary = n.locked ? "#5d6579" : filled ? (info.darkText ? "#2B2B2B" : "#ffffff") : "#ced4e2";
+    const muted = n.locked ? "#4b5266" : filled ? (info.darkText ? "rgba(43,43,43,.65)" : "rgba(255,255,255,.7)") : "#818aa0";
 
-    if (cimkek) {
+    if (labels) {
       ctx.font = "10.5px ui-monospace, Consolas, monospace";
-      ctx.fillStyle = halvany;
+      ctx.fillStyle = muted;
       ctx.fillText(n.id, x + 10, y + 16);
-      if (n.kapu) {
+      if (n.gateway) {
         ctx.font = "11px 'Segoe UI', system-ui, sans-serif";
         ctx.fillText("★", x + NW - 20, y + 16);
       }
       ctx.font = "12.5px 'Segoe UI', system-ui, sans-serif";
-      ctx.fillStyle = fo;
-      nevSorok(n).forEach((s, i) => ctx.fillText(s, x + 10, y + 34 + i * 15));
-    } else if (n.kapu) {
+      ctx.fillStyle = primary;
+      nameLines(n).forEach((s, i) => ctx.fillText(s, x + 10, y + 34 + i * 15));
+    } else if (n.gateway) {
       // Képernyőméretben rögzített felirat, hogy távolról is legyen tájékozódási pont.
       const f = 11 / view.z;
       ctx.font = `600 ${f}px ui-monospace, Consolas, monospace`;
@@ -350,9 +350,9 @@ function rajzol() {
       ctx.textAlign = "left";
     }
 
-    if (!n.zarolt) {
+    if (!n.locked) {
       for (let i = 0; i < 5; i++) {
-        ctx.fillStyle = i <= n.szint ? (teli ? halvany : info.szin) : "rgba(255,255,255,.13)";
+        ctx.fillStyle = i <= n.mastery ? (filled ? muted : info.color) : "rgba(255,255,255,.13)";
         ctx.fillRect(x + 10 + i * 9, y + NH - 12, 6, 5);
       }
     } else {
@@ -364,15 +364,15 @@ function rajzol() {
   }
 
   ctx.restore();
-  minimapRajzol();
+  drawMinimap();
 }
 
-function minimapRajzol() {
-  const s = Math.min(mm.width / vilagSzeles, mm.height / vilagMagas);
-  const ox = (mm.width - vilagSzeles * s) / 2, oy = (mm.height - vilagMagas * s) / 2;
+function drawMinimap() {
+  const s = Math.min(mm.width / worldWidth, mm.height / worldHeight);
+  const ox = (mm.width - worldWidth * s) / 2, oy = (mm.height - worldHeight * s) / 2;
   mmx.clearRect(0, 0, mm.width, mm.height);
   for (const n of nodes) {
-    mmx.fillStyle = n.zarolt ? "rgba(90,98,120,.5)" : agSzinRGBA(n.ag, 0.35 + (n.szint / 4) * 0.65);
+    mmx.fillStyle = n.locked ? "rgba(90,98,120,.5)" : branchColorRgba(n.branch, 0.35 + (n.mastery / 4) * 0.65);
     mmx.fillRect(ox + (n.x - NW / 2) * s, oy + (n.y - NH / 2) * s, Math.max(2, NW * s), Math.max(2, NH * s));
   }
   mmx.strokeStyle = "rgba(255,255,255,.8)";
@@ -383,135 +383,135 @@ function minimapRajzol() {
 
 // ---------------------------------------------------------------- interakció
 
-function vilagra(sx, sy) {
+function screenToWorld(sx, sy) {
   return { x: (sx - view.x) / view.z, y: (sy - view.y) / view.z };
 }
-function talal(sx, sy) {
-  const p = vilagra(sx, sy);
+function findNode(sx, sy) {
+  const p = screenToWorld(sx, sy);
   for (let i = nodes.length - 1; i >= 0; i--) {
     const n = nodes[i];
-    if (csakKapu && !n.kapu) continue;
+    if (onlyGateways && !n.gateway) continue;
     if (Math.abs(p.x - n.x) <= NW / 2 && Math.abs(p.y - n.y) <= NH / 2) return n;
   }
   return null;
 }
 
-let huz = null, mozgott = false;
+let drag = null, moved = false;
 cv.addEventListener("pointerdown", (e) => {
-  huz = { sx: e.clientX, sy: e.clientY, vx: view.x, vy: view.y };
-  mozgott = false;
+  drag = { sx: e.clientX, sy: e.clientY, vx: view.x, vy: view.y };
+  moved = false;
   cv.setPointerCapture(e.pointerId);
   cv.classList.add("dragging");
 });
 cv.addEventListener("pointermove", (e) => {
   const r = cv.getBoundingClientRect();
-  if (huz) {
-    const dx = e.clientX - huz.sx, dy = e.clientY - huz.sy;
-    if (Math.abs(dx) + Math.abs(dy) > 4) mozgott = true;
-    view.x = huz.vx + dx;
-    view.y = huz.vy + dy;
-    rajzol();
+  if (drag) {
+    const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+    if (Math.abs(dx) + Math.abs(dy) > 4) moved = true;
+    view.x = drag.vx + dx;
+    view.y = drag.vy + dy;
+    draw();
     return;
   }
-  const n = talal(e.clientX - r.left, e.clientY - r.top);
+  const n = findNode(e.clientX - r.left, e.clientY - r.top);
   if (n !== hover) {
     hover = n;
-    if (!kivalasztott) kiemelesFrissit(n);
-    rajzol();
+    if (!selected) refreshHighlight(n);
+    draw();
   }
   if (n) {
     tip.style.display = "block";
     tip.style.left = Math.min(e.clientX - r.left + 14, W - 280) + "px";
     tip.style.top = e.clientY - r.top + 66 + "px";
-    tip.innerHTML = `<b>${n.id}</b> · ${esc(n.nev)}<br><span class="t">${
-      n.zarolt ? "zárolt — hiányzik: " + n.elofeltetel.filter((p) => byId.get(p).szint < 2).join(", ")
-               : SZINT_NEV[n.szint] + " · " + n.utodok.length + " készséget nyit meg"}</span>`;
+    tip.innerHTML = `<b>${n.id}</b> · ${esc(n.name)}<br><span class="t">${
+      n.locked ? "zárolt — hiányzik: " + n.prerequisites.filter((p) => byId.get(p).mastery < 2).join(", ")
+               : MASTERY_LEVEL_NAMES[n.mastery] + " · " + n.descendants.length + " készséget nyit meg"}</span>`;
   } else {
     tip.style.display = "none";
   }
 });
 cv.addEventListener("pointerleave", () => {
   tip.style.display = "none";
-  if (hover && !kivalasztott) { hover = null; kiemelesFrissit(null); rajzol(); }
+  if (hover && !selected) { hover = null; refreshHighlight(null); draw(); }
 });
 cv.addEventListener("pointerup", (e) => {
   cv.classList.remove("dragging");
-  const volt = huz;
-  huz = null;
-  if (mozgott || !volt) return;
+  const dragStart = drag;
+  drag = null;
+  if (moved || !dragStart) return;
   const r = cv.getBoundingClientRect();
-  const n = talal(e.clientX - r.left, e.clientY - r.top);
-  n ? valaszt(n) : bezar();
+  const n = findNode(e.clientX - r.left, e.clientY - r.top);
+  n ? selectNode(n) : closePanel();
 });
 cv.addEventListener("dblclick", (e) => {
   const r = cv.getBoundingClientRect();
-  const n = talal(e.clientX - r.left, e.clientY - r.top);
-  if (n) repul(n, 1.1);
+  const n = findNode(e.clientX - r.left, e.clientY - r.top);
+  if (n) flyTo(n, 1.1);
 });
 cv.addEventListener("wheel", (e) => {
   e.preventDefault();
   const r = cv.getBoundingClientRect();
   const sx = e.clientX - r.left, sy = e.clientY - r.top;
-  const elotte = vilagra(sx, sy);
-  const uj = Math.min(2.2, Math.max(0.1, view.z * Math.pow(1.0015, -e.deltaY)));
-  view.z = uj;
-  view.x = sx - elotte.x * uj;
-  view.y = sy - elotte.y * uj;
-  rajzol();
+  const previous = screenToWorld(sx, sy);
+  const nextZoom = Math.min(2.2, Math.max(0.1, view.z * Math.pow(1.0015, -e.deltaY)));
+  view.z = nextZoom;
+  view.x = sx - previous.x * nextZoom;
+  view.y = sy - previous.y * nextZoom;
+  draw();
 }, { passive: false });
 
-let mmHuz = false;
-function miniterkepKamerara(e) {
+let minimapDrag = false;
+function moveCameraFromMinimap(e) {
   const r = mm.getBoundingClientRect();
   const wx = ((e.clientX - r.left) * (mm.width / r.width) - mm._ox) / mm._s;
   const wy = ((e.clientY - r.top) * (mm.height / r.height) - mm._oy) / mm._s;
   view.x = W / 2 - wx * view.z;
   view.y = H / 2 - wy * view.z;
-  rajzol();
+  draw();
 }
 mm.addEventListener("pointerdown", (e) => {
-  mmHuz = true;
+  minimapDrag = true;
   mm.setPointerCapture(e.pointerId);
-  miniterkepKamerara(e);
+  moveCameraFromMinimap(e);
 });
 mm.addEventListener("pointermove", (e) => {
-  if (mmHuz) miniterkepKamerara(e);
+  if (minimapDrag) moveCameraFromMinimap(e);
 });
 mm.addEventListener("pointerup", (e) => {
-  mmHuz = false;
+  minimapDrag = false;
   mm.releasePointerCapture(e.pointerId);
 });
 mm.addEventListener("pointercancel", () => {
-  mmHuz = false;
+  minimapDrag = false;
 });
 
-function repul(n, z = 1.1) {
-  const cel = { z, x: W / 2 - n.x * z, y: H / 2 - n.y * z };
+function flyTo(n, z = 1.1) {
+  const target = { z, x: W / 2 - n.x * z, y: H / 2 - n.y * z };
   const start = { ...view }, t0 = performance.now();
-  (function lep(t) {
+  (function step(t) {
     const k = Math.min(1, (t - t0) / 380);
     const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
-    view.x = start.x + (cel.x - start.x) * e;
-    view.y = start.y + (cel.y - start.y) * e;
-    view.z = start.z + (cel.z - start.z) * e;
-    rajzol();
-    if (k < 1) requestAnimationFrame(lep);
+    view.x = start.x + (target.x - start.x) * e;
+    view.y = start.y + (target.y - start.y) * e;
+    view.z = start.z + (target.z - start.z) * e;
+    draw();
+    if (k < 1) requestAnimationFrame(step);
   })(t0);
 }
 
-function bejar(n, mezo) {
-  const ki = new Set(), sor = [...n[mezo]];
-  while (sor.length) {
-    const id = sor.pop();
+function traverse(n, field) {
+  const ki = new Set(), row = [...n[field]];
+  while (row.length) {
+    const id = row.pop();
     if (ki.has(id)) continue;
     ki.add(id);
-    sor.push(...byId.get(id)[mezo]);
+    row.push(...byId.get(id)[field]);
   }
   return ki;
 }
-function kiemelesFrissit(n) {
-  kiemeltFel = n ? bejar(n, "elofeltetel") : new Set();
-  kiemeltLe = n ? bejar(n, "utodok") : new Set();
+function refreshHighlight(n) {
+  highlightedAncestors = n ? traverse(n, "prerequisites") : new Set();
+  highlightedDescendants = n ? traverse(n, "descendants") : new Set();
 }
 
 // ---------------------------------------------------------------- panel
@@ -519,45 +519,45 @@ function kiemelesFrissit(n) {
 function esc(s) {
   return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 }
-function pips(sz, ag) {
-  return `<span class="pips">${[0, 1, 2, 3, 4]
-    .map((i) => `<i style="background:${i <= sz ? AGAK[ag].szin : "#2c313d"}"></i>`).join("")}</span>`;
+function masteryIndicators(sz, branch) {
+  return `<span class="masteryIndicators">${[0, 1, 2, 3, 4]
+    .map((i) => `<i style="background:${i <= sz ? BRANCHES[branch].color : "#2c313d"}"></i>`).join("")}</span>`;
 }
-function depSor(id) {
+function dependencyRow(id) {
   const n = byId.get(id);
-  return `<div class="dep" data-goto="${n.id}">${pips(n.zarolt ? -1 : n.szint, n.ag)}
-    <span class="nm">${esc(n.nev)}</span> <span class="id">${n.id}</span></div>`;
+  return `<div class="dep" data-goto="${n.id}">${masteryIndicators(n.locked ? -1 : n.mastery, n.branch)}
+    <span class="nm">${esc(n.name)}</span> <span class="id">${n.id}</span></div>`;
 }
 
-function valaszt(n) {
-  kivalasztott = n;
-  kiemelesFrissit(n);
-  panelRajzol();
+function selectNode(n) {
+  selected = n;
+  refreshHighlight(n);
+  renderPanel();
   panel.classList.add("open");
-  rajzol();
+  draw();
 }
-function bezar() {
-  kivalasztott = null;
-  kiemelesFrissit(hover);
+function closePanel() {
+  selected = null;
+  refreshHighlight(hover);
   panel.classList.remove("open");
-  rajzol();
+  draw();
 }
-function teljesFaVisszaallitas() {
+function resetTree() {
   hover = null;
-  kivalasztott = null;
-  talalatok = new Set();
-  kereso.value = "";
-  kereso.blur();
+  selected = null;
+  matches = new Set();
+  search.value = "";
+  search.blur();
   tip.style.display = "none";
-  kiemelesFrissit(null);
+  refreshHighlight(null);
   panel.classList.remove("open");
-  rajzol();
+  draw();
 }
 
-function panelRajzol() {
-  const n = kivalasztott;
+function renderPanel() {
+  const n = selected;
   if (!n) return;
-  const hianyzo = n.elofeltetel.filter((p) => byId.get(p).zarolt || byId.get(p).szint < 2);
+  const missing = n.prerequisites.filter((p) => byId.get(p).locked || byId.get(p).mastery < 2);
   const usefulnessState = usefulnessDisplayState(localState, n.id, usefulnessRefreshFailedSkillId === n.id);
   const usefulness = usefulnessState.text
     ? `<div class="usefulness-text">${esc(usefulnessState.text)}</div>${usefulnessState.refreshFailed ? '<div class="usefulness-error" role="alert">Nem sikerült frissíteni az indoklást. <button class="text-button" data-act="usefulness-retry">Próbáld újra</button></div>' : ""}<button class="text-button" data-act="usefulness">Mást kérek</button>`
@@ -565,28 +565,28 @@ function panelRajzol() {
       ? `<div class="usefulness-error" role="alert">Most nem sikerült valós példát készíteni ehhez a készséghez. <button class="text-button" data-act="usefulness-retry">Próbáld újra</button></div>`
     : `<em>${localState.selectedModel ? "Kérhetsz rövid, személyre szabott indoklást." : "Állíts be egy modellt a személyre szabott indokláshoz."}</em><button class="text-button" data-act="usefulness" ${localState.selectedModel ? "" : "disabled"}>Miért jó nekem?</button>`;
   panelBody.innerHTML = `
-    <h2>${esc(n.nev)}</h2>
-    <div class="sub"><span style="color:${AGAK[n.ag].szin}">●</span> ${AGAK[n.ag].nev} ága ·
-      <code>${n.id}</code> · ${n.reteg + 1}. réteg${n.kapu ? " · ★ kapunode" : ""}</div>
+    <h2>${esc(n.name)}</h2>
+    <div class="sub"><span style="color:${BRANCHES[n.branch].color}">●</span> ${BRANCHES[n.branch].name} ága ·
+      <code>${n.id}</code> · ${n.layer + 1}. réteg${n.gateway ? " · ★ kapunode" : ""}</div>
 
-    ${n.zarolt ? `<div class="locked">Zárolt — előbb ezek kellenek legalább 2. szinten:
-        ${hianyzo.map((h) => `<b>${h}</b>`).join(", ")}</div>` : ""}
+    ${n.locked ? `<div class="locked">Zárolt — előbb ezek kellenek legalább 2. szinten:
+        ${missing.map((h) => `<b>${h}</b>`).join(", ")}</div>` : ""}
 
-    <div class="block"><div class="lbl">Mi ez</div>${esc(n.leiras)}</div>
+    <div class="block"><div class="lbl">Mi ez</div>${esc(n.description)}</div>
 
     <div class="block ai"><div class="lbl">Miért jó neked</div>${usefulness}</div>
 
-    <div class="block"><div class="lbl">Előfeltételek (${n.elofeltetel.length})</div>
-      ${n.elofeltetel.length ? n.elofeltetel.map(depSor).join("") : '<span class="sub">nincs — kiindulópont</span>'}</div>
+    <div class="block"><div class="lbl">Előfeltételek (${n.prerequisites.length})</div>
+      ${n.prerequisites.length ? n.prerequisites.map(dependencyRow).join("") : '<span class="sub">nincs — kiindulópont</span>'}</div>
 
-    <div class="block"><div class="lbl">Ezt nyitja meg (${n.utodok.length})</div>
-      ${n.utodok.length ? n.utodok.map(depSor).join("") : '<span class="sub">a lánc vége</span>'}</div>
+    <div class="block"><div class="lbl">Ezt nyitja meg (${n.descendants.length})</div>
+      ${n.descendants.length ? n.descendants.map(dependencyRow).join("") : '<span class="sub">a lánc vége</span>'}</div>
 
     <div class="block"><div class="lbl">Mennyire tudod?</div>
       <div class="slider">${[0, 1, 2, 3, 4]
-        .map((i) => `<button data-lvl="${i}" class="${!n.zarolt && n.szint === i ? "on" : ""}"
-          ${n.zarolt ? "disabled" : ""}>${i}</button>`).join("")}</div>
-      <div class="lvltext">${n.zarolt ? "—" : `<b>${SZINT_NEV[n.szint]}</b> · „${SZINT_HORGONY[n.szint]}"`}</div></div>
+        .map((i) => `<button data-lvl="${i}" class="${!n.locked && n.mastery === i ? "on" : ""}"
+          ${n.locked ? "disabled" : ""}>${i}</button>`).join("")}</div>
+      <div class="lvltext">${n.locked ? "—" : `<b>${MASTERY_LEVEL_NAMES[n.mastery]}</b> · „${MASTERY_LEVEL_DESCRIPTIONS[n.mastery]}"`}</div></div>
 
     <div class="actions">
       <button data-act="path">Ezt akarom tanulni</button>
@@ -596,20 +596,20 @@ function panelRajzol() {
 
 panelBody.addEventListener("click", (e) => {
   const dep = e.target.closest("[data-goto]");
-  if (dep) { const n = byId.get(dep.dataset.goto); valaszt(n); repul(n); return; }
+  if (dep) { const n = byId.get(dep.dataset.goto); selectNode(n); flyTo(n); return; }
   const lvl = e.target.closest("[data-lvl]");
   if (lvl) {
-    localState = setManualMastery(localState, skillIds, kivalasztott.id, +lvl.dataset.lvl);
+    localState = setManualMastery(localState, skillIds, selected.id, +lvl.dataset.lvl);
     localState = saveLocalState(window.localStorage, localState, skillIds);
-    frissitZarolas();
-    panelRajzol();
-    rajzol();
+    refreshLocks();
+    renderPanel();
+    draw();
     return;
   }
   const act = e.target.closest("[data-act]");
-  if (act?.dataset.act === "path") utvonal(kivalasztott);
-  if (act?.dataset.act === "gyak") window.location.assign(`worksheet.html?skill=${encodeURIComponent(kivalasztott.id)}`);
-  if (act?.dataset.act === "usefulness" || act?.dataset.act === "usefulness-retry") generateUsefulness(kivalasztott);
+  if (act?.dataset.act === "path") learningPath(selected);
+  if (act?.dataset.act === "gyak") window.location.assign(`worksheet.html?skill=${encodeURIComponent(selected.id)}`);
+  if (act?.dataset.act === "usefulness" || act?.dataset.act === "usefulness-retry") generateUsefulness(selected);
 });
 
 async function generateUsefulness(skill) {
@@ -624,7 +624,7 @@ async function generateUsefulness(skill) {
       body: JSON.stringify({
         modelId: localState.selectedModel,
         profile: localState.profile,
-        skill: { id: skill.id, nev: skill.nev, leiras: skill.leiras, prerequisites: skill.elofeltetel, relatedSkillIds: skill.utodok },
+        skill: { id: skill.id, name: skill.name, description: skill.description, prerequisites: skill.prerequisites, relatedSkillIds: skill.descendants },
       }),
     });
     const payload = await response.json();
@@ -635,20 +635,20 @@ async function generateUsefulness(skill) {
     if (usefulnessDisplayState(localState, skill.id).text) usefulnessRefreshFailedSkillId = skill.id;
     else usefulnessFallbackSkillId = skill.id;
   }
-  if (kivalasztott?.id === skill.id) panelRajzol();
+  if (selected?.id === skill.id) renderPanel();
 }
-panel.querySelector(".close").addEventListener("click", bezar);
+panel.querySelector(".close").addEventListener("click", closePanel);
 
-function utvonal(n) {
-  const kell = [...bejar(n, "elofeltetel")].map(byId.get.bind(byId)).filter((x) => x.szint < 2);
-  talalatok = new Set([n.id, ...kell.map((x) => x.id)]);
-  kiemeltFel = new Set(); kiemeltLe = new Set();
-  const sorrend = topoSorrend.filter((id) => talalatok.has(id) && id !== n.id);
-  tipTartos(`<b>${n.id}</b> · ${kell.length} készség hiányzik<br><span class="t">${
-    sorrend.slice(0, 12).map((id) => esc(byId.get(id).nev)).join(" → ")}</span>`);
-  rajzol();
+function learningPath(n) {
+  const required = [...traverse(n, "prerequisites")].map(byId.get.bind(byId)).filter((x) => x.mastery < 2);
+  matches = new Set([n.id, ...required.map((x) => x.id)]);
+  highlightedAncestors = new Set(); highlightedDescendants = new Set();
+  const order = topoSorrend.filter((id) => matches.has(id) && id !== n.id);
+  showPersistentTip(`<b>${n.id}</b> · ${required.length} készség hiányzik<br><span class="t">${
+    order.slice(0, 12).map((id) => esc(byId.get(id).name)).join(" → ")}</span>`);
+  draw();
 }
-function tipTartos(html) {
+function showPersistentTip(html) {
   tip.innerHTML = html;
   tip.style.display = "block";
   tip.style.left = "12px";
@@ -699,13 +699,13 @@ function refreshModelResults({ open = true } = {}) {
 
 function profileFields(profile) {
   return `
-    <div class="field"><label for="profile-erdeklodes">Mi érdekel?</label><input id="profile-erdeklodes" name="erdeklodes" maxlength="500" value="${esc(profile.erdeklodes)}" placeholder="Például zene, gaming vagy foci"></div>
-    <div class="field"><label for="profile-sajat">Mondanál magadról valamit, ami segít példát választani?</label><textarea id="profile-sajat" name="sajat" maxlength="500" placeholder="Opcionális">${esc(profile.sajat)}</textarea></div>
-    <div class="field"><label for="profile-cel">Mi a célod?</label><input id="profile-cel" name="cel" maxlength="500" value="${esc(profile.cel)}" placeholder="Például érettségi vagy informatika szak"></div>`;
+    <div class="field"><label for="profile-interests">Mi érdekel?</label><input id="profile-interests" name="interests" maxlength="500" value="${esc(profile.interests)}" placeholder="Például zene, gaming vagy foci"></div>
+    <div class="field"><label for="profile-background">Mondanál magadról valamit, ami segít példát választani?</label><textarea id="profile-background" name="background" maxlength="500" placeholder="Opcionális">${esc(profile.background)}</textarea></div>
+    <div class="field"><label for="profile-goal">Mi a célod?</label><input id="profile-goal" name="goal" maxlength="500" value="${esc(profile.goal)}" placeholder="Például érettségi vagy informatika szak"></div>`;
 }
 
 function profileFrom(container) {
-  return Object.fromEntries(["erdeklodes", "sajat", "cel"].map((key) => [key, container.querySelector(`[name="${key}"]`).value.trim()]));
+  return Object.fromEntries(["interests", "background", "goal"].map((key) => [key, container.querySelector(`[name="${key}"]`).value.trim()]));
 }
 
 function openOnboarding() {
@@ -738,7 +738,7 @@ function renderOnboarding() {
   if (onboarding.step === 2) {
     const cards = ONBOARDING_SKILL_IDS.map((id) => byId.get(id)).filter(Boolean).map((skill) => `
       <label class="calibration-card"><input type="checkbox" data-calibration-id="${skill.id}" ${onboarding.selected.has(skill.id) ? "checked" : ""}>
-        <span><code>${skill.id}</code><br>${esc(skill.nev)}</span></label>`).join("");
+        <span><code>${skill.id}</code><br>${esc(skill.name)}</span></label>`).join("");
     onboardingBody.innerHTML = `
       <h2 id="onboarding-title">Gyors kalibráció</h2>
       <p>Jelöld be, amit biztosan tudsz. Ezek 4-es szintet kapnak, az előfeltételeik pedig legalább 2-est.</p>
@@ -751,17 +751,17 @@ function renderOnboarding() {
   onboardingBody.innerHTML = `
     <h2 id="onboarding-title">Átnézés</h2>
     <p><b>${changes.length} készség</b> kap új szintet a kiválasztásaid alapján.</p>
-    <div class="review-list">${changes.length ? changes.map((id) => `<div class="review-row"><span><code>${id}</code> ${esc(byId.get(id).nev)}</span><b>${onboarding.baselineMastery[id]} → ${proposed[id]}</b></div>`).join("") : "<p>Nincs javasolt módosítás.</p>"}</div>
+    <div class="review-list">${changes.length ? changes.map((id) => `<div class="review-row"><span><code>${id}</code> ${esc(byId.get(id).name)}</span><b>${onboarding.baselineMastery[id]} → ${proposed[id]}</b></div>`).join("") : "<p>Nincs javasolt módosítás.</p>"}</div>
     <div class="modal-actions"><button class="ghost" data-onboarding="undo">Visszavonom</button><button class="ghost" data-onboarding="back">Módosítom</button><button data-onboarding="complete">Belépés a fába</button></div>`;
 }
 
 function finishOnboarding({ applyCalibration }) {
   localState = { ...localState, profile: onboarding.profile, mastery: applyCalibration ? proposedCalibration() : onboarding.baselineMastery, onboardingComplete: true };
   persistLocalState();
-  frissitZarolas();
+  refreshLocks();
   onboardingDialog.close();
   onboarding = null;
-  rajzol();
+  draw();
 }
 
 onboardingBody.addEventListener("input", (event) => {
@@ -814,7 +814,7 @@ function renderSettings() {
   const selected = modelCatalog.find((model) => model.id === selectedModel);
   settingsBody.innerHTML = `
     <h2 id="settings-title">Beállítások</h2>
-    <p>A profil opcionális. Modell csak AI-műveletekhez kell.</p>
+    <p>A profil opcionális. Modell csak AI-műveletekhez required.</p>
     ${profileFields(localState.profile)}
     <div class="field"><label for="model-search">OpenRouter modell</label><div class="model-picker"><input id="model-search" type="search" role="combobox" aria-controls="model-results" aria-expanded="false" aria-autocomplete="list" placeholder="Keress név vagy azonosító alapján" autocomplete="off" value="${esc(modelSearchQuery)}"><input type="hidden" name="selectedModel" value="${esc(selectedModel || "")}"><div id="model-results" class="model-results" role="listbox" hidden>${modelResults(modelSearchQuery, selectedModel)}</div></div><div class="selected-model" id="selected-model-label">${selected ? `Kiválasztva: ${esc(selected.name)} <code>${esc(selected.id)}</code>` : selectedModel ? `Kiválasztva: <code>${esc(selectedModel)}</code>` : "Nincs kiválasztva."}</div><div class="status" id="model-status">${esc(modelStatus(modelSearchQuery))}</div></div>
     <div class="modal-actions"><button class="ghost" data-settings="cancel">Mégse</button><button data-settings="save">Mentés</button></div>`;
@@ -854,56 +854,56 @@ settingsBody.addEventListener("click", (event) => {
 // ---------------------------------------------------------------- fejléc
 
 const chips = document.getElementById("chips");
-AG_SORREND.forEach((ag) => {
+BRANCH_ORDER.forEach((branch) => {
   const b = document.createElement("button");
   b.className = "chip";
-  b.innerHTML = `<i style="background:${AGAK[ag].szin}"></i>${AGAK[ag].nev}`;
-  b.onclick = () => agra(ag);
+  b.innerHTML = `<i style="background:${BRANCHES[branch].color}"></i>${BRANCHES[branch].name}`;
+  b.onclick = () => goToBranch(branch);
   chips.appendChild(b);
 });
-function agra(ag) {
-  const s = savok.find((x) => x.ag === ag);
-  const z = Math.min(0.85, Math.min(W / (s.w + 200), H / vilagMagas));
-  const cel = { z, x: W / 2 - (s.x + s.w / 2) * z, y: H / 2 - vilagMagas / 2 * z };
+function goToBranch(branch) {
+  const s = bands.find((x) => x.branch === branch);
+  const z = Math.min(0.85, Math.min(W / (s.w + 200), H / worldHeight));
+  const target = { z, x: W / 2 - (s.x + s.w / 2) * z, y: H / 2 - worldHeight / 2 * z };
   const start = { ...view }, t0 = performance.now();
-  (function lep(t) {
+  (function step(t) {
     const k = Math.min(1, (t - t0) / 400);
     const e = 1 - Math.pow(1 - k, 3);
-    view.x = start.x + (cel.x - start.x) * e;
-    view.y = start.y + (cel.y - start.y) * e;
-    view.z = start.z + (cel.z - start.z) * e;
-    rajzol();
-    if (k < 1) requestAnimationFrame(lep);
+    view.x = start.x + (target.x - start.x) * e;
+    view.y = start.y + (target.y - start.y) * e;
+    view.z = start.z + (target.z - start.z) * e;
+    draw();
+    if (k < 1) requestAnimationFrame(step);
   })(t0);
 }
 
-const kereso = document.getElementById("search");
-kereso.addEventListener("input", () => {
-  const q = kereso.value.trim().toLowerCase();
-  talalatok = new Set();
+const search = document.getElementById("search");
+search.addEventListener("input", () => {
+  const q = search.value.trim().toLowerCase();
+  matches = new Set();
   if (q.length >= 2) {
     for (const n of nodes) {
-      if (n.id.toLowerCase().includes(q) || n.nev.toLowerCase().includes(q)) talalatok.add(n.id);
+      if (n.id.toLowerCase().includes(q) || n.name.toLowerCase().includes(q)) matches.add(n.id);
     }
   }
-  rajzol();
+  draw();
 });
-kereso.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && talalatok.size) {
-    const n = byId.get([...talalatok][0]);
-    valaszt(n); repul(n);
+search.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && matches.size) {
+    const n = byId.get([...matches][0]);
+    selectNode(n); flyTo(n);
   }
-  if (e.key === "Escape") teljesFaVisszaallitas();
+  if (e.key === "Escape") resetTree();
 });
 
 window.addEventListener("keydown", (e) => {
-  if (e.target === kereso) return;
-  if (e.key === "/") { e.preventDefault(); kereso.focus(); return; }
-  if (e.key === "f" || e.key === "F") kepernyore();
-  if (e.key === "g" || e.key === "G") { csakKapu = !csakKapu; rajzol(); }
-  if (e.key === "Escape") teljesFaVisszaallitas();
-  if (e.key >= "1" && e.key <= "6") agra(AG_SORREND[+e.key - 1]);
+  if (e.target === search) return;
+  if (e.key === "/") { e.preventDefault(); search.focus(); return; }
+  if (e.key === "f" || e.key === "F") fitToScreen();
+  if (e.key === "g" || e.key === "G") { onlyGateways = !onlyGateways; draw(); }
+  if (e.key === "Escape") resetTree();
+  if (e.key >= "1" && e.key <= "6") goToBranch(BRANCH_ORDER[+e.key - 1]);
 });
 
-meret();
+resize();
 if (!localState.onboardingComplete) openOnboarding();

@@ -136,7 +136,7 @@ async function generate() {
   try {
     const response = await fetch("/api/worksheets", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ modelId: state.selectedModel, profile: state.profile, request, skill: { id: skill.id, nev: skill.nev, leiras: skill.leiras, prerequisites: skill.elofeltetel, relatedSkillIds: skill.utodok } }),
+      body: JSON.stringify({ modelId: state.selectedModel, profile: state.profile, request, skill: { id: skill.id, name: skill.name, description: skill.description, prerequisites: skill.prerequisites, relatedSkillIds: skill.descendants } }),
     });
     const payload = await response.json();
     if (!response.ok) throw new Error(payload?.error?.message || "A feladatlap most nem készült el.");
@@ -150,7 +150,7 @@ if (!skill) {
   context.textContent = "A kiválasztott készség nem található. Térj vissza a fához, és válassz egy csomópontot.";
   generateButton.disabled = true;
 } else {
-  context.replaceChildren(element("p", `${skill.id} - ${skill.nev}`), element("p", skill.leiras));
+  context.replaceChildren(element("p", `${skill.id} - ${skill.name}`), element("p", skill.description));
 }
 generateButton.addEventListener("click", generate);
 retryButton.addEventListener("click", generate);

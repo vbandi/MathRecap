@@ -15,8 +15,8 @@ async function withServer(options, run) {
   }
 }
 
-const profile = { erdeklodes: "zene", sajat: "törteket gyakorlok", cel: "érettségi" };
-const skill = { id: "ALG-08", nev: "Betűs kifejezések", leiras: "Kifejezések átalakítása.", prerequisites: ["SZA-03"], relatedSkillIds: [] };
+const profile = { interests: "zene", background: "törteket gyakorlok", goal: "érettségi" };
+const skill = { id: "ALG-08", name: "Betűs kifejezések", description: "Kifejezések átalakítása.", prerequisites: ["SZA-03"], relatedSkillIds: [] };
 
 test("the tree is served and missing configuration is secret-free JSON", async () => {
   await withServer({ apiKey: "" }, async (baseUrl) => {
@@ -83,7 +83,7 @@ function worksheetFixture() {
     whyThisMatters: [{ type: "text", value: "Segít az egyenletekben." }],
     exerciseGroups: [{ title: "Gyakorlás", problems: [{ id: "p1", prompt: [{ type: "text", value: "Egyszerűsítsd: 2x + x" }] }] }],
     canChecklist: ["El tudom végezni az összevonást."],
-    answers: [{ problemId: "p1", answer: [{ type: "inlineMath", value: "3x" }], reasoning: [{ type: "text", value: "Azonos tagok." }] }],
+    answers: [{ problemId: "p1", answer: [{ type: "inlineMath", value: "3x" }], reasoning: [{ type: "text", value: "Azonos members." }] }],
     diagnosticNotes: [{ skillId: "ALG-08", note: "Azonos tagokat vonj össze." }], suggestedNextSteps: ["Oldj meg egy egyenletet."],
   };
 }

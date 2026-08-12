@@ -6,9 +6,9 @@ const optionalProfileText = z.string().trim().max(500).optional().default("");
 const skillId = z.string().trim().regex(/^[A-Z]{3}-\d{2}$/);
 
 export const profileSchema = z.object({
-  erdeklodes: optionalProfileText,
-  sajat: optionalProfileText,
-  cel: optionalProfileText,
+  interests: optionalProfileText,
+  background: optionalProfileText,
+  goal: optionalProfileText,
 }).strict();
 
 export const modelIdSchema = modelId;
@@ -21,8 +21,8 @@ export const modelCatalogSchema = z.array(z.object({
 
 const skillContextSchema = z.object({
   id: skillId,
-  nev: shortText(240),
-  leiras: shortText(2_000),
+  name: shortText(240),
+  description: shortText(2_000),
   prerequisites: z.array(skillId).max(30).default([]),
   relatedSkillIds: z.array(skillId).max(60).default([]),
 }).strict();

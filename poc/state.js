@@ -2,7 +2,7 @@ export const LOCAL_STATE_KEY = "mathrecap.local-state";
 export const LOCAL_STATE_VERSION = 2;
 export const DEFAULT_MODEL_ID = "openai/gpt-5.6-luna";
 
-const EMPTY_PROFILE = Object.freeze({ erdeklodes: "", sajat: "", cel: "" });
+const EMPTY_PROFILE = Object.freeze({ interests: "", background: "", goal: "" });
 
 function masteryFor(skillIds, source = {}) {
   return Object.fromEntries(skillIds.map((id) => [id, Number.isInteger(source[id]) && source[id] >= 0 && source[id] <= 4 ? source[id] : 0]));
@@ -24,9 +24,9 @@ function usefulnessCacheFor(source = {}) {
 export function usefulnessFingerprint(profile, selectedModel) {
   return JSON.stringify({
     modelId: selectedModel ?? "",
-    erdeklodes: profile?.erdeklodes ?? "",
-    sajat: profile?.sajat ?? "",
-    cel: profile?.cel ?? "",
+    interests: profile?.interests ?? "",
+    background: profile?.background ?? "",
+    goal: profile?.goal ?? "",
   });
 }
 
@@ -52,16 +52,13 @@ export function emptyLocalState(skillIds) {
 
 function migrateLocalState(payload, skillIds) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return emptyLocalState(skillIds);
-  const source = payload.version === 0
-    ? { ...payload, mastery: payload.mastery ?? payload.szintek }
-    : payload;
   return {
     version: LOCAL_STATE_VERSION,
-    mastery: masteryFor(skillIds, source.mastery),
-    profile: profileFor(source.profile),
-    selectedModel: typeof source.selectedModel === "string" && source.selectedModel ? source.selectedModel : DEFAULT_MODEL_ID,
-    onboardingComplete: source.onboardingComplete === true,
-    usefulnessCache: usefulnessCacheFor(source.usefulnessCache),
+    mastery: masteryFor(skillIds, payload.mastery),
+    profile: profileFor(payload.profile),
+    selectedModel: typeof payload.selectedModel === "string" && payload.selectedModel ? payload.selectedModel : DEFAULT_MODEL_ID,
+    onboardingComplete: payload.onboardingComplete === true,
+    usefulnessCache: usefulnessCacheFor(payload.usefulnessCache),
   };
 }
 
@@ -119,7 +116,7 @@ export function calibrationProposal(nodes, mastery, selectedSkillIds) {
   const visitPrerequisites = (skillId) => {
     const skill = byId.get(skillId);
     if (!skill) return;
-    for (const prerequisiteId of skill.elofeltetel) {
+    for (const prerequisiteId of skill.prerequisites) {
       if (!selected.has(prerequisiteId)) proposed[prerequisiteId] = Math.max(proposed[prerequisiteId] ?? 0, 2);
       visitPrerequisites(prerequisiteId);
     }
@@ -144,7 +141,7 @@ export function recomputeLocks(nodes, mastery) {
     if (visiting.has(id)) return true;
     visiting.add(id);
     const node = byId.get(id);
-    const value = !node || node.elofeltetel.some((prerequisiteId) => locked(prerequisiteId) || (mastery[prerequisiteId] ?? 0) < 2);
+    const value = !node || node.prerequisites.some((prerequisiteId) => locked(prerequisiteId) || (mastery[prerequisiteId] ?? 0) < 2);
     visiting.delete(id);
     locks[id] = value;
     return value;
