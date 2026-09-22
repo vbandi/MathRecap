@@ -35,6 +35,11 @@ test("the tree is served and missing configuration is secret-free JSON", async (
     const katex = await fetch(`${baseUrl}/vendor/katex/katex.min.js`);
     assert.equal(katex.status, 200);
 
+    const traversal = await fetch(`${baseUrl}/..%2fserver.mjs`);
+    assert.equal(traversal.status, 403);
+    const katexTraversal = await fetch(`${baseUrl}/vendor/katex/..%2f..%2fpackage.json`);
+    assert.equal(katexTraversal.status, 403);
+
     const models = await fetch(`${baseUrl}/api/models`);
     assert.equal(models.status, 503);
     const body = await models.json();

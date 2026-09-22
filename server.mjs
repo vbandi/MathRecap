@@ -1,6 +1,6 @@
 import { createReadStream, statSync } from "node:fs";
 import { createServer as createHttpServer } from "node:http";
-import { extname, join, normalize, resolve } from "node:path";
+import { extname, isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ZodError } from "zod";
 import { generateUsefulness, generateWorksheet, listModels, normalizeOpenRouterError } from "./server/openrouter.mjs";
@@ -62,7 +62,8 @@ function serveStatic(request, response, pathname) {
   const staticRoot = isKatex ? katexDir : publicDir;
   const requested = pathname === "/" ? "/index.html" : isKatex ? pathname.slice("/vendor/katex".length) : pathname;
   const candidate = normalize(join(staticRoot, requested));
-  if (!candidate.startsWith(`${staticRoot}\\`) && candidate !== staticRoot) return sendError(response, 403, "forbidden", "A fájl nem érhető el.");
+  const relativePath = relative(staticRoot, candidate);
+  if (relativePath === ".." || relativePath.startsWith(`..${sep}`) || isAbsolute(relativePath)) return sendError(response, 403, "forbidden", "A fájl nem érhető el.");
   try {
     if (!statSync(candidate).isFile()) return sendError(response, 404, "not_found", "A fájl nem található.");
   } catch {
