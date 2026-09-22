@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { request as httpRequest } from "node:http";
 import test from "node:test";
 import { createAppServer } from "../server.mjs";
 import { parseWorksheetResponse } from "../server/schemas.mjs";
@@ -79,6 +80,48 @@ test("invalid API requests are rejected before generation", async () => {
     assert.equal(oversized.status, 413);
     assert.equal((await oversized.json()).error.code, "payload_too_large");
   });
+});
+
+function rawRequest(baseUrl, { method = "GET", path = "/", headers = {}, body } = {}) {
+  return new Promise((resolve, reject) => {
+    const outgoing = httpRequest(`${baseUrl}${path}`, { method, headers }, (incoming) => {
+      const chunks = [];
+      incoming.on("data", (chunk) => chunks.push(chunk));
+      incoming.on("end", () => resolve({ status: incoming.statusCode, body: Buffer.concat(chunks).toString("utf8") }));
+    });
+    outgoing.on("error", reject);
+    outgoing.end(body);
+  });
+}
+
+test("cross-site and rebinding requests cannot reach the API", async () => {
+  let upstreamCalls = 0;
+  const fetchImpl = async () => { upstreamCalls += 1; throw new Error("must not be called"); };
+  await withServer({ apiKey: "test-only-key", fetchImpl }, async (baseUrl) => {
+    const body = JSON.stringify({ modelId: "vendor/model", profile, request: "gyakorlás", skill });
+
+    const rebound = await rawRequest(baseUrl, { path: "/api/models", headers: { Host: "attacker.example:3000" } });
+    assert.equal(rebound.status, 403);
+    assert.equal(JSON.parse(rebound.body).error.code, "forbidden_host");
+
+    const reboundStatic = await rawRequest(baseUrl, { headers: { Host: "attacker.example" } });
+    assert.equal(reboundStatic.status, 403);
+
+    const crossOrigin = await rawRequest(baseUrl, { method: "POST", path: "/api/worksheets", headers: { "Content-Type": "application/json", Origin: "https://attacker.example" }, body });
+    assert.equal(crossOrigin.status, 403);
+    assert.equal(JSON.parse(crossOrigin.body).error.code, "forbidden_origin");
+
+    const opaqueOrigin = await rawRequest(baseUrl, { method: "POST", path: "/api/usefulness", headers: { "Content-Type": "application/json", Origin: "null" }, body });
+    assert.equal(opaqueOrigin.status, 403);
+
+    const simplePost = await rawRequest(baseUrl, { method: "POST", path: "/api/worksheets", headers: { "Content-Type": "text/plain" }, body });
+    assert.equal(simplePost.status, 415);
+    assert.equal(JSON.parse(simplePost.body).error.code, "unsupported_media_type");
+
+    const localhost = await rawRequest(baseUrl, { headers: { Host: "localhost:3000", Origin: "http://localhost:3000" } });
+    assert.equal(localhost.status, 200);
+  });
+  assert.equal(upstreamCalls, 0);
 });
 
 function worksheetFixture() {

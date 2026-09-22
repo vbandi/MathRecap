@@ -77,10 +77,37 @@ function validationError(error) {
   return { code: "invalid_request", message: "A kérés nem felel meg az elvárt formátumnak.", details: error.issues.map((issue) => ({ path: issue.path.join("."), message: issue.message })) };
 }
 
+const LOOPBACK_HOSTNAMES = new Set(["127.0.0.1", "localhost", "[::1]"]);
+
+function isLoopbackUrl(value) {
+  try {
+    return LOOPBACK_HOSTNAMES.has(new URL(value).hostname);
+  } catch {
+    return false;
+  }
+}
+
+// Blocks DNS rebinding (foreign Host) and cross-site API calls that would spend the local API key.
+function assertTrustedRequest(request, isApi) {
+  if (!isLoopbackUrl(`http://${request.headers.host ?? ""}`)) {
+    throw new OpenRequestError("forbidden_host", "A kiszolgáló csak helyi címről érhető el.", 403);
+  }
+  if (!isApi) return;
+  const origin = request.headers.origin;
+  if (origin !== undefined && !isLoopbackUrl(origin)) {
+    throw new OpenRequestError("forbidden_origin", "Az API csak a helyi alkalmazásból hívható.", 403);
+  }
+  const contentType = request.headers["content-type"]?.split(";")[0].trim().toLowerCase();
+  if (request.method === "POST" && contentType !== "application/json") {
+    throw new OpenRequestError("unsupported_media_type", "A kérés törzsének JSON-nak kell lennie.", 415);
+  }
+}
+
 export function createAppServer({ apiKey = process.env.OPENROUTER_API_KEY, fetchImpl = globalThis.fetch, timeoutMs = 60_000 } = {}) {
   return createHttpServer(async (request, response) => {
     const url = new URL(request.url, "http://localhost");
     try {
+      assertTrustedRequest(request, url.pathname.startsWith("/api/"));
       if (request.method === "GET" && url.pathname === "/api/models") {
         const models = await listModels({ apiKey, fetchImpl, timeoutMs });
         return sendJson(response, 200, { models });
