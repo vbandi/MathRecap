@@ -23,7 +23,7 @@ export function normalizeOpenRouterError(error) {
   const status = error?.status ?? error?.statusCode;
   if (status === 429) return new OpenRouterError("rate_limited", "Az OpenRouter átmenetileg korlátozza a kéréseket.", 429);
   if (status === 404) return new OpenRouterError("model_unavailable", "A kiválasztott modell jelenleg nem érhető el.", 404);
-  return new OpenRouterError("upstream_error", "Az OpenRouter-kérés sikertelen dragStart. Próbáld később újra.", 502);
+  return new OpenRouterError("upstream_error", "Az OpenRouter-kérés sikertelen volt. Próbáld később újra.", 502);
 }
 
 async function requestJson(path, { apiKey, fetchImpl, timeoutMs }) {
@@ -58,7 +58,7 @@ export async function listModels(options) {
   try {
     return modelCatalogSchema.parse(models).sort((left, right) => left.name.localeCompare(right.name, "hu"));
   } catch {
-    throw new OpenRouterError("invalid_upstream_response", "Az OpenRouter modellkatalógusa érvénytelen dragStart.", 502);
+    throw new OpenRouterError("invalid_upstream_response", "Az OpenRouter modellkatalógusa érvénytelen volt.", 502);
   }
 }
 
@@ -101,7 +101,7 @@ export async function generateUsefulness({ apiKey, fetchImpl, timeoutMs, modelId
   try {
     return usefulnessResponseSchema.parse(payload);
   } catch {
-    throw new OpenRouterError("invalid_upstream_response", "Az OpenRouter indoklása érvénytelen dragStart.", 502);
+    throw new OpenRouterError("invalid_upstream_response", "Az OpenRouter indoklása érvénytelen volt.", 502);
   }
 }
 
@@ -120,7 +120,7 @@ export async function generateWorksheet({ apiKey, fetchImpl, timeoutMs, modelId,
     try {
       return parseWorksheetResponse(correctedPayload, validSkillIds);
     } catch {
-      throw new OpenRouterError("invalid_upstream_response", "Az OpenRouter feladatlapja hiányos vagy érvénytelen dragStart.", 502);
+      throw new OpenRouterError("invalid_upstream_response", "Az OpenRouter feladatlapja hiányos vagy érvénytelen volt.", 502);
     }
   }
 }

@@ -1,8 +1,10 @@
 export const LOCAL_STATE_KEY = "mathrecap.local-state";
-export const LOCAL_STATE_VERSION = 2;
+export const LOCAL_STATE_VERSION = 3;
 export const DEFAULT_MODEL_ID = "openai/gpt-5.6-luna";
 
 const EMPTY_PROFILE = Object.freeze({ interests: "", background: "", goal: "" });
+// Storage keys written by versions before 3 used Hungarian names.
+const LEGACY_PROFILE_KEYS = Object.freeze({ interests: "erdeklodes", background: "sajat", goal: "cel" });
 
 function masteryFor(skillIds, source = {}) {
   return Object.fromEntries(skillIds.map((id) => [id, Number.isInteger(source[id]) && source[id] >= 0 && source[id] <= 4 ? source[id] : 0]));
@@ -50,15 +52,26 @@ export function emptyLocalState(skillIds) {
   };
 }
 
+function upgradeLegacyPayload(payload) {
+  if (typeof payload.version === "number" && payload.version >= LOCAL_STATE_VERSION) return payload;
+  const profile = payload.profile && typeof payload.profile === "object" ? payload.profile : {};
+  return {
+    ...payload,
+    mastery: payload.mastery ?? payload.szintek,
+    profile: Object.fromEntries(Object.entries(LEGACY_PROFILE_KEYS).map(([key, legacyKey]) => [key, profile[key] ?? profile[legacyKey]])),
+  };
+}
+
 function migrateLocalState(payload, skillIds) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return emptyLocalState(skillIds);
+  const source = upgradeLegacyPayload(payload);
   return {
     version: LOCAL_STATE_VERSION,
-    mastery: masteryFor(skillIds, payload.mastery),
-    profile: profileFor(payload.profile),
-    selectedModel: typeof payload.selectedModel === "string" && payload.selectedModel ? payload.selectedModel : DEFAULT_MODEL_ID,
-    onboardingComplete: payload.onboardingComplete === true,
-    usefulnessCache: usefulnessCacheFor(payload.usefulnessCache),
+    mastery: masteryFor(skillIds, source.mastery),
+    profile: profileFor(source.profile),
+    selectedModel: typeof source.selectedModel === "string" && source.selectedModel ? source.selectedModel : DEFAULT_MODEL_ID,
+    onboardingComplete: source.onboardingComplete === true,
+    usefulnessCache: usefulnessCacheFor(source.usefulnessCache),
   };
 }
 

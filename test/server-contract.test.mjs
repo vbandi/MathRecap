@@ -83,7 +83,7 @@ function worksheetFixture() {
     whyThisMatters: [{ type: "text", value: "Segít az egyenletekben." }],
     exerciseGroups: [{ title: "Gyakorlás", problems: [{ id: "p1", prompt: [{ type: "text", value: "Egyszerűsítsd: 2x + x" }] }] }],
     canChecklist: ["El tudom végezni az összevonást."],
-    answers: [{ problemId: "p1", answer: [{ type: "inlineMath", value: "3x" }], reasoning: [{ type: "text", value: "Azonos members." }] }],
+    answers: [{ problemId: "p1", answer: [{ type: "inlineMath", value: "3x" }], reasoning: [{ type: "text", value: "Azonos tagok." }] }],
     diagnosticNotes: [{ skillId: "ALG-08", note: "Azonos tagokat vonj össze." }], suggestedNextSteps: ["Oldj meg egy egyenletet."],
   };
 }

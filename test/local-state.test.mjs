@@ -45,6 +45,25 @@ test("stored local state retains only known, valid mastery values", () => {
   assert.deepEqual(state.usefulnessCache, {});
 });
 
+test("legacy local state with Hungarian storage keys migrates to the current shape", () => {
+  const legacyV0 = loadLocalState(memoryStorage({ [LOCAL_STATE_KEY]: JSON.stringify({
+    version: 0,
+    szintek: { ROOT: 3 },
+    profile: { erdeklodes: "zene", sajat: "törtek", cel: "érettségi" },
+  }) }), skillIds);
+  assert.equal(legacyV0.version, LOCAL_STATE_VERSION);
+  assert.deepEqual(legacyV0.mastery, { ROOT: 3, CHILD: 0, OTHER: 0 });
+  assert.deepEqual(legacyV0.profile, { interests: "zene", background: "törtek", goal: "érettségi" });
+
+  const legacyV2 = loadLocalState(memoryStorage({ [LOCAL_STATE_KEY]: JSON.stringify({
+    version: 2,
+    mastery: { CHILD: 1 },
+    profile: { erdeklodes: "sport" },
+  }) }), skillIds);
+  assert.deepEqual(legacyV2.mastery, { ROOT: 0, CHILD: 1, OTHER: 0 });
+  assert.deepEqual(legacyV2.profile, { interests: "sport", background: "", goal: "" });
+});
+
 test("manual mastery persists and locks derive from persisted values without mutating them", () => {
   const storage = memoryStorage();
   let state = loadLocalState(storage, skillIds);

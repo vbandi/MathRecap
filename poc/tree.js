@@ -841,7 +841,7 @@ function renderSettings() {
   const selected = modelCatalog.find((model) => model.id === selectedModel);
   settingsBody.innerHTML = `
     <h2 id="settings-title">Beállítások</h2>
-    <p>A profil opcionális. Modell csak AI-műveletekhez required.</p>
+    <p>A profil opcionális. Modell csak AI-műveletekhez kell.</p>
     ${profileFields(localState.profile)}
     <div class="field"><label for="model-search">OpenRouter modell</label><div class="model-picker"><input id="model-search" type="search" role="combobox" aria-controls="model-results" aria-expanded="false" aria-autocomplete="list" placeholder="Keress név vagy azonosító alapján" autocomplete="off" value="${esc(modelSearchQuery)}"><input type="hidden" name="selectedModel" value="${esc(selectedModel || "")}"><div id="model-results" class="model-results" role="listbox" hidden>${modelResults(modelSearchQuery, selectedModel)}</div></div><div class="selected-model" id="selected-model-label">${selected ? `Kiválasztva: ${esc(selected.name)} <code>${esc(selected.id)}</code>` : selectedModel ? `Kiválasztva: <code>${esc(selectedModel)}</code>` : "Nincs kiválasztva."}</div><div class="status" id="model-status">${esc(modelStatus(modelSearchQuery))}</div></div>
     <div class="modal-actions"><button class="ghost" data-settings="cancel">Mégse</button><button data-settings="save">Mentés</button></div>`;
