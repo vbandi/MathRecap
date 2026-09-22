@@ -272,6 +272,19 @@ function beginVisibilityFade(from) {
   requestVisibilityDraw();
 }
 
+// Graph-paper grid in world space so it pans and zooms with the tree.
+function drawGrid() {
+  const step = view.z < 0.35 ? 160 : 40;
+  const x0 = Math.floor(-view.x / view.z / step) * step, x1 = (W - view.x) / view.z;
+  const y0 = Math.floor(-view.y / view.z / step) * step, y1 = (H - view.y) / view.z;
+  ctx.beginPath();
+  for (let x = x0; x <= x1; x += step) { ctx.moveTo(x, y0); ctx.lineTo(x, y1); }
+  for (let y = y0; y <= y1; y += step) { ctx.moveTo(x0, y); ctx.lineTo(x1, y); }
+  ctx.strokeStyle = "rgba(142,151,184,.05)";
+  ctx.lineWidth = 1 / view.z;
+  ctx.stroke();
+}
+
 function draw() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
@@ -279,27 +292,31 @@ function draw() {
   ctx.translate(view.x, view.y);
   ctx.scale(view.z, view.z);
 
+  drawGrid();
+
   // ágsávok
   for (const s of bands) {
     ctx.fillStyle = branchColorRgba(s.branch, 0.035);
     ctx.fillRect(s.x, 0, s.w, worldHeight);
-    ctx.fillStyle = branchColorRgba(s.branch, 0.55);
-    ctx.font = "600 26px 'Segoe UI', system-ui, sans-serif";
+    ctx.fillStyle = branchColorRgba(s.branch, 0.6);
+    ctx.font = "800 26px ui-rounded, 'Segoe UI Variable Display', 'Segoe UI', system-ui, sans-serif";
+    ctx.letterSpacing = "4px";
     ctx.textAlign = "center";
     ctx.fillText(BRANCHES[s.branch].name.toUpperCase(), s.x + s.w / 2, 34);
   }
+  ctx.letterSpacing = "0px";
   ctx.textAlign = "left";
 
   // élek
   for (const e of edges) {
     const a = Math.min(displayedVisibility(e.from), displayedVisibility(e.to));
-    let color = `rgba(150,160,180,${0.3 * a})`, lineWidth = 1.2;
+    let color = `rgba(142,151,184,${0.3 * a})`, lineWidth = 1.2;
     const isAncestorEdge = (highlightedAncestors.has(e.from.id) || e.from === hover || e.from === selected) &&
                            (highlightedAncestors.has(e.to.id) || e.to === hover || e.to === selected);
     const isDescendantEdge = (highlightedDescendants.has(e.to.id)) &&
                              (highlightedDescendants.has(e.from.id) || e.from === hover || e.from === selected);
-    if (isAncestorEdge) { color = "rgba(120,170,255,.9)"; lineWidth = 2; }
-    else if (isDescendantEdge) { color = "rgba(232,163,61,.85)"; lineWidth = 2; }
+    if (isAncestorEdge) { color = "rgba(198,240,106,.9)"; lineWidth = 2.2; }
+    else if (isDescendantEdge) { color = "rgba(255,184,107,.85)"; lineWidth = 2.2; }
 
     ctx.strokeStyle = color;
     ctx.lineWidth = lineWidth;
@@ -323,36 +340,41 @@ function draw() {
     const info = BRANCHES[n.branch];
 
     if (n.locked) {
-      rrect(ctx, x, y, NW, NH, 8);
-      ctx.fillStyle = "#14161c";
+      rrect(ctx, x, y, NW, NH, 10);
+      ctx.fillStyle = "#131729";
       ctx.fill();
-      ctx.strokeStyle = "#333a48";
+      ctx.strokeStyle = "#2e3552";
       ctx.lineWidth = 1.2;
+      ctx.setLineDash([4, 4]);
       ctx.stroke();
+      ctx.setLineDash([]);
     } else {
-      rrect(ctx, x, y, NW, NH, 8);
-      ctx.fillStyle = n.mastery === 0 ? "#181b23" : branchColorRgba(n.branch, 0.14 + (n.mastery / 4) * 0.86);
+      rrect(ctx, x, y, NW, NH, 10);
+      ctx.fillStyle = n.mastery === 0 ? "#1a1f33" : branchColorRgba(n.branch, 0.14 + (n.mastery / 4) * 0.86);
       ctx.fill();
       ctx.strokeStyle = info.color;
       ctx.lineWidth = n.gateway ? 2.6 : 1.4;
       ctx.stroke();
     }
     if (matches.has(n.id)) {
-      rrect(ctx, x - 4, y - 4, NW + 8, NH + 8, 11);
-      ctx.strokeStyle = "#ffd479";
+      rrect(ctx, x - 4, y - 4, NW + 8, NH + 8, 13);
+      ctx.strokeStyle = "#ffb86b";
       ctx.lineWidth = 2;
       ctx.stroke();
     }
     if (n === selected) {
-      rrect(ctx, x - 5, y - 5, NW + 10, NH + 10, 12);
-      ctx.strokeStyle = "#fff";
-      ctx.lineWidth = 2;
+      rrect(ctx, x - 5, y - 5, NW + 10, NH + 10, 14);
+      ctx.strokeStyle = "#c6f06a";
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = "rgba(198,240,106,.6)";
+      ctx.shadowBlur = 14;
       ctx.stroke();
+      ctx.shadowBlur = 0;
     }
 
     const filled = !n.locked && n.mastery >= 3;
-    const primary = n.locked ? "#5d6579" : filled ? (info.darkText ? "#2B2B2B" : "#ffffff") : "#ced4e2";
-    const muted = n.locked ? "#4b5266" : filled ? (info.darkText ? "rgba(43,43,43,.65)" : "rgba(255,255,255,.7)") : "#818aa0";
+    const primary = n.locked ? "#5a6388" : filled ? (info.darkText ? "#2B2B2B" : "#ffffff") : "#d4d9ea";
+    const muted = n.locked ? "#474f70" : filled ? (info.darkText ? "rgba(43,43,43,.65)" : "rgba(255,255,255,.7)") : "#8089aa";
 
     if (labels) {
       ctx.font = "10.5px ui-monospace, Consolas, monospace";
@@ -371,7 +393,7 @@ function draw() {
       ctx.font = `600 ${f}px ui-monospace, Consolas, monospace`;
       ctx.textAlign = "center";
       ctx.lineWidth = 3.5 / view.z;
-      ctx.strokeStyle = "rgba(8,10,14,.85)";
+      ctx.strokeStyle = "rgba(14,17,32,.85)";
       ctx.strokeText(n.id, n.x, n.y + NH / 2 + f * 1.15);
       ctx.fillStyle = "rgba(255,255,255,.9)";
       ctx.fillText(n.id, n.x, n.y + NH / 2 + f * 1.15);
@@ -380,7 +402,8 @@ function draw() {
 
     for (let i = 0; i < 5; i++) {
       ctx.fillStyle = i <= n.mastery ? (filled ? muted : info.color) : "rgba(255,255,255,.13)";
-      ctx.fillRect(x + 10 + i * 9, y + NH - 12, 6, 5);
+      rrect(ctx, x + 10 + i * 9, y + NH - 12, 6, 5, 1.5);
+      ctx.fill();
     }
     ctx.globalAlpha = 1;
   }
@@ -398,10 +421,10 @@ function drawMinimap() {
   const ox = (mm.width - worldWidth * s) / 2, oy = (mm.height - worldHeight * s) / 2;
   mmx.clearRect(0, 0, mm.width, mm.height);
   for (const n of nodes) {
-    mmx.fillStyle = n.locked ? "rgba(90,98,120,.5)" : branchColorRgba(n.branch, 0.35 + (n.mastery / 4) * 0.65);
+    mmx.fillStyle = n.locked ? "rgba(90,98,136,.5)" : branchColorRgba(n.branch, 0.35 + (n.mastery / 4) * 0.65);
     mmx.fillRect(ox + (n.x - NW / 2) * s, oy + (n.y - NH / 2) * s, Math.max(2, NW * s), Math.max(2, NH * s));
   }
-  mmx.strokeStyle = "rgba(255,255,255,.8)";
+  mmx.strokeStyle = "#c6f06a";
   mmx.lineWidth = 1.5;
   mmx.strokeRect(ox + (-view.x / view.z) * s, oy + (-view.y / view.z) * s, (W / view.z) * s, (H / view.z) * s);
   mm._s = s; mm._ox = ox; mm._oy = oy;
@@ -549,7 +572,7 @@ function esc(s) {
 }
 function masteryPips(level, branch) {
   return `<span class="pips">${[0, 1, 2, 3, 4]
-    .map((i) => `<i style="background:${i <= level ? BRANCHES[branch].color : "#2c313d"}"></i>`).join("")}</span>`;
+    .map((i) => `<i style="background:${i <= level ? BRANCHES[branch].color : "#262d48"}"></i>`).join("")}</span>`;
 }
 function dependencyRow(id) {
   const n = byId.get(id);

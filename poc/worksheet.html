@@ -5,12 +5,14 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MathRecap - feladatlap</title>
 <link rel="stylesheet" href="/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="theme.css">
 <link rel="stylesheet" href="print.css">
 </head>
 <body>
-  <header class="app-chrome">
-    <a href="index.html" aria-label="Vissza a készségfához">Vissza a fához</a>
-    <strong>MathRecap</strong>
+  <header class="topbar app-chrome">
+    <a class="brand" href="index.html"><span class="logo" aria-hidden="true">√</span>MathRecap <small>feladatlap</small></a>
+    <span class="spacer"></span>
+    <a class="btn ghost" href="index.html" aria-label="Vissza a készségfához">← Vissza a fához</a>
   </header>
   <main>
     <section class="request-panel app-chrome" aria-labelledby="workspace-title">
@@ -18,21 +20,23 @@
       <h1 id="workspace-title">Feladatlap</h1>
       <div id="skill-context" class="skill-context"></div>
       <label for="worksheet-request">Mit gyakorolnál?</label>
-      <textarea id="worksheet-request" maxlength="2000">Kérek fokozatos, önálló gyakorlást.</textarea>
+      <textarea id="worksheet-request" class="input" maxlength="2000">Kérek fokozatos, önálló gyakorlást.</textarea>
       <div class="request-actions">
-        <button id="generate-button" type="button">Feladatlap készítése</button>
-        <button id="retry-button" type="button" hidden>Próbáld újra</button>
+        <button id="generate-button" class="btn" type="button">Feladatlap készítése</button>
+        <button id="retry-button" class="btn ghost" type="button" hidden>Próbáld újra</button>
         <span id="request-status" role="status" aria-live="polite"></span>
       </div>
     </section>
     <section id="workspace" class="workspace" hidden>
       <nav class="tabs app-chrome" aria-label="Feladatlap nézet">
-        <button type="button" data-view="worksheet" aria-selected="true">Feladatlap</button>
-        <button type="button" data-print="worksheet">Feladatlap nyomtatása</button>
-        <button type="button" data-view="answers" aria-selected="false">Megoldókulcs</button>
-        <button type="button" data-print="answers">Megoldókulcs nyomtatása</button>
+        <div class="segmented">
+          <button type="button" data-view="worksheet" aria-selected="true">Feladatlap</button>
+          <button type="button" data-view="answers" aria-selected="false">Megoldókulcs</button>
+        </div>
+        <button class="btn ghost" type="button" data-print="worksheet">Feladatlap nyomtatása</button>
+        <button class="btn ghost" type="button" data-print="answers">Megoldókulcs nyomtatása</button>
         <span aria-hidden="true"></span>
-        <button id="new-worksheet" type="button">Új feladatlap</button>
+        <button id="new-worksheet" class="btn" type="button">Új feladatlap</button>
       </nav>
       <article id="worksheet-view" class="print-document"></article>
       <article id="answers-view" class="print-document" hidden></article>
