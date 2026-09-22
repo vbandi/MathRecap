@@ -126,7 +126,13 @@ export function createAppServer({ apiKey = process.env.OPENROUTER_API_KEY, fetch
       if (url.pathname.startsWith("/api/")) return sendError(response, 404, "not_found", "Az API-végpont nem található.");
       if (request.method !== "GET" && request.method !== "HEAD") return sendError(response, 405, "method_not_allowed", "Ez a művelet nem támogatott.");
       if (request.method === "HEAD") return response.end();
-      serveStatic(request, response, decodeURIComponent(url.pathname));
+      let pathname;
+      try {
+        pathname = decodeURIComponent(url.pathname);
+      } catch {
+        return sendError(response, 400, "invalid_path", "A kért elérési út érvénytelen.");
+      }
+      serveStatic(request, response, pathname);
     } catch (error) {
       if (error instanceof ZodError) {
         const issue = validationError(error);

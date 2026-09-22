@@ -41,6 +41,10 @@ test("the tree is served and missing configuration is secret-free JSON", async (
     const katexTraversal = await fetch(`${baseUrl}/vendor/katex/..%2f..%2fpackage.json`);
     assert.equal(katexTraversal.status, 403);
 
+    const malformed = await fetch(`${baseUrl}/%E0`);
+    assert.equal(malformed.status, 400);
+    assert.equal((await malformed.json()).error.code, "invalid_path");
+
     const models = await fetch(`${baseUrl}/api/models`);
     assert.equal(models.status, 503);
     const body = await models.json();
