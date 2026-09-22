@@ -23,7 +23,7 @@ const MASTERY_LEVEL_DESCRIPTIONS = [
 
 const NW = 176, NH = 64;          // csomópont
 const SLOT_W = 204, SLOT_H = 124; // rács
-const AG_GAP = 72;
+const BRANCH_GAP = 72;
 const BRANCH_HEADER_HEIGHT = 54;            // hely az ágfeliratnak
 const LABEL_THRESHOLD = 0.5;         // az egyetlen zoom-küszöb
 
@@ -41,33 +41,33 @@ for (const n of nodes) {
   for (const p of n.prerequisites) byId.get(p).descendants.push(n.id);
 }
 
-// Réteg = leghosszabb út a gyökerektől; egyben topologikus order.
-const topoSorrend = (function () {
-  const bejovo = new Map(nodes.map((n) => [n.id, n.prerequisites.length]));
-  const row = nodes.filter((n) => n.prerequisites.length === 0).map((n) => n.id);
+// Réteg = leghosszabb út a gyökerektől; egyben topologikus sorrend.
+const topologicalOrder = (function () {
+  const incomingCount = new Map(nodes.map((n) => [n.id, n.prerequisites.length]));
+  const queue = nodes.filter((n) => n.prerequisites.length === 0).map((n) => n.id);
   const out = [];
   for (const n of nodes) n.layer = 0;
-  while (row.length) {
-    const id = row.shift();
+  while (queue.length) {
+    const id = queue.shift();
     out.push(id);
     for (const u of byId.get(id).descendants) {
       const un = byId.get(u);
       un.layer = Math.max(un.layer, byId.get(id).layer + 1);
-      const maradek = bejovo.get(u) - 1;
-      bejovo.set(u, maradek);
-      if (maradek === 0) row.push(u);
+      const remaining = incomingCount.get(u) - 1;
+      incomingCount.set(u, remaining);
+      if (remaining === 0) queue.push(u);
     }
   }
   if (out.length !== nodes.length) console.warn("Kör a gráfban!");
   return out;
 })();
 
-const MAX_RETEG = Math.max(...nodes.map((n) => n.layer));
+const MAX_LAYER = Math.max(...nodes.map((n) => n.layer));
 
 // ---------------------------------------------------------------- elrendezés
 
 let worldWidth = 0;
-const worldHeight = (MAX_RETEG + 1) * SLOT_H + BRANCH_HEADER_HEIGHT + 40;
+const worldHeight = (MAX_LAYER + 1) * SLOT_H + BRANCH_HEADER_HEIGHT + 40;
 const bands = [];
 
 (function layout() {
@@ -84,9 +84,9 @@ const bands = [];
     };
     recalculate();
     const average = (n, field) => {
-      const relevans = n[field].filter((id) => column.has(id));
-      if (!relevans.length) return column.get(n.id);
-      return relevans.reduce((a, id) => a + column.get(id), 0) / relevans.length;
+      const relevant = n[field].filter((id) => column.has(id));
+      if (!relevant.length) return column.get(n.id);
+      return relevant.reduce((a, id) => a + column.get(id), 0) / relevant.length;
     };
     for (let pass = 0; pass < 4; pass++) {
       const downward = pass % 2 === 0;
@@ -109,9 +109,9 @@ const bands = [];
     }
 
     bands.push({ branch, x, w: width * SLOT_W });
-    x += width * SLOT_W + AG_GAP;
+    x += width * SLOT_W + BRANCH_GAP;
   }
-  worldWidth = x - AG_GAP;
+  worldWidth = x - BRANCH_GAP;
 })();
 
 const edges = [];
@@ -214,33 +214,33 @@ function rrect(c, x, y, w, h, r) {
   c.closePath();
 }
 
-const sorokCache = new Map();
+const nameLinesCache = new Map();
 function nameLines(n) {
-  if (sorokCache.has(n.id)) return sorokCache.get(n.id);
+  if (nameLinesCache.has(n.id)) return nameLinesCache.get(n.id);
   ctx.font = "12.5px 'Segoe UI', system-ui, sans-serif";
   const max = NW - 20;
-  const szavak = n.name.split(" ");
+  const words = n.name.split(" ");
   const rows = [];
-  let akt = "";
-  for (const sz of szavak) {
-    const proba = akt ? akt + " " + sz : sz;
-    if (ctx.measureText(proba).width > max && akt) { rows.push(akt); akt = sz; }
-    else akt = proba;
+  let current = "";
+  for (const word of words) {
+    const candidate = current ? current + " " + word : word;
+    if (ctx.measureText(candidate).width > max && current) { rows.push(current); current = word; }
+    else current = candidate;
     if (rows.length === 2) break;
   }
-  if (rows.length < 2 && akt) rows.push(akt);
+  if (rows.length < 2 && current) rows.push(current);
   if (rows.length === 2 && ctx.measureText(rows[1]).width > max - 10) {
     while (rows[1].length > 4 && ctx.measureText(rows[1] + "…").width > max) rows[1] = rows[1].slice(0, -1);
     rows[1] += "…";
   }
-  sorokCache.set(n.id, rows);
+  nameLinesCache.set(n.id, rows);
   return rows;
 }
 
 function visibility(n) {
   if (highlightedAncestors.size || highlightedDescendants.size) {
-    const benne = n === hover || n === selected || highlightedAncestors.has(n.id) || highlightedDescendants.has(n.id);
-    if (!benne) return 0.4;
+    const isHighlighted = n === hover || n === selected || highlightedAncestors.has(n.id) || highlightedDescendants.has(n.id);
+    if (!isHighlighted) return 0.4;
   }
   if (matches.size && !matches.has(n.id)) return 0.15;
   if (onlyGateways && !n.gateway) return 0.08;
@@ -293,16 +293,16 @@ function draw() {
   // élek
   for (const e of edges) {
     const a = Math.min(displayedVisibility(e.from), displayedVisibility(e.to));
-    let color = `rgba(150,160,180,${0.3 * a})`, vastag = 1.2;
-    const kiemelt = (highlightedAncestors.has(e.from.id) || e.from === hover || e.from === selected) &&
-                    (highlightedAncestors.has(e.to.id) || e.to === hover || e.to === selected);
-    const utodEl = (highlightedDescendants.has(e.to.id)) &&
-                   (highlightedDescendants.has(e.from.id) || e.from === hover || e.from === selected);
-    if (kiemelt) { color = "rgba(120,170,255,.9)"; vastag = 2; }
-    else if (utodEl) { color = "rgba(232,163,61,.85)"; vastag = 2; }
+    let color = `rgba(150,160,180,${0.3 * a})`, lineWidth = 1.2;
+    const isAncestorEdge = (highlightedAncestors.has(e.from.id) || e.from === hover || e.from === selected) &&
+                           (highlightedAncestors.has(e.to.id) || e.to === hover || e.to === selected);
+    const isDescendantEdge = (highlightedDescendants.has(e.to.id)) &&
+                             (highlightedDescendants.has(e.from.id) || e.from === hover || e.from === selected);
+    if (isAncestorEdge) { color = "rgba(120,170,255,.9)"; lineWidth = 2; }
+    else if (isDescendantEdge) { color = "rgba(232,163,61,.85)"; lineWidth = 2; }
 
     ctx.strokeStyle = color;
-    ctx.lineWidth = vastag;
+    ctx.lineWidth = lineWidth;
     ctx.setLineDash(e.crossBranch ? [6, 5] : []);
     const y1 = e.from.y + NH / 2, y2 = e.to.y - NH / 2;
     const k = Math.min(60, Math.max(24, (y2 - y1) / 2));
@@ -526,14 +526,14 @@ function flyTo(n, z = 1.1) {
 }
 
 function traverse(n, field) {
-  const ki = new Set(), row = [...n[field]];
-  while (row.length) {
-    const id = row.pop();
-    if (ki.has(id)) continue;
-    ki.add(id);
-    row.push(...byId.get(id)[field]);
+  const visited = new Set(), stack = [...n[field]];
+  while (stack.length) {
+    const id = stack.pop();
+    if (visited.has(id)) continue;
+    visited.add(id);
+    stack.push(...byId.get(id)[field]);
   }
-  return ki;
+  return visited;
 }
 function refreshHighlight(n) {
   const from = new Map(nodes.map((node) => [node.id, displayedVisibility(node)]));
@@ -547,13 +547,13 @@ function refreshHighlight(n) {
 function esc(s) {
   return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 }
-function masteryIndicators(sz, branch) {
-  return `<span class="masteryIndicators">${[0, 1, 2, 3, 4]
-    .map((i) => `<i style="background:${i <= sz ? BRANCHES[branch].color : "#2c313d"}"></i>`).join("")}</span>`;
+function masteryPips(level, branch) {
+  return `<span class="pips">${[0, 1, 2, 3, 4]
+    .map((i) => `<i style="background:${i <= level ? BRANCHES[branch].color : "#2c313d"}"></i>`).join("")}</span>`;
 }
 function dependencyRow(id) {
   const n = byId.get(id);
-  return `<div class="dep" data-goto="${n.id}">${masteryIndicators(n.locked ? -1 : n.mastery, n.branch)}
+  return `<div class="dep" data-goto="${n.id}">${masteryPips(n.locked ? -1 : n.mastery, n.branch)}
     <span class="nm">${esc(n.name)}</span> <span class="id">${n.id}</span></div>`;
 }
 
@@ -617,7 +617,7 @@ function renderPanel() {
 
     <div class="actions">
       <button data-act="path">Ezt akarom tanulni</button>
-      <button class="ghost" data-act="gyak">Gyakorlás →</button>
+      <button class="ghost" data-act="practice">Gyakorlás →</button>
     </div>`;
 }
 
@@ -635,7 +635,7 @@ panelBody.addEventListener("click", (e) => {
   }
   const act = e.target.closest("[data-act]");
   if (act?.dataset.act === "path") learningPath(selected);
-  if (act?.dataset.act === "gyak") window.location.assign(`worksheet.html?skill=${encodeURIComponent(selected.id)}`);
+  if (act?.dataset.act === "practice") window.location.assign(`worksheet.html?skill=${encodeURIComponent(selected.id)}`);
   if (act?.dataset.act === "usefulness" || act?.dataset.act === "usefulness-retry") generateUsefulness(selected);
 });
 
@@ -670,7 +670,7 @@ function learningPath(n) {
   const required = [...traverse(n, "prerequisites")].map(byId.get.bind(byId)).filter((x) => x.mastery < 2);
   matches = new Set([n.id, ...required.map((x) => x.id)]);
   highlightedAncestors = new Set(); highlightedDescendants = new Set();
-  const order = topoSorrend.filter((id) => matches.has(id) && id !== n.id);
+  const order = topologicalOrder.filter((id) => matches.has(id) && id !== n.id);
   showPersistentTip(`<b>${n.id}</b> · ${required.length} készség hiányzik<br><span class="t">${
     order.slice(0, 12).map((id) => esc(byId.get(id).name)).join(" → ")}</span>`);
   draw();
