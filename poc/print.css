@@ -5,6 +5,9 @@ body { background: var(--grid), var(--bg); background-attachment: fixed; font-si
 main { max-width: 940px; margin: 36px auto 60px; padding: 0 20px; }
 .request-panel { padding: 26px 28px; background: var(--bg2); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); }
 h1 { margin: 6px 0 18px; font: 800 30px/1.15 var(--font-display); }
+.page-intro { margin-bottom: 24px; }
+.page-intro .skill-context { margin: 0; }
+.request-panel h2 { margin: 0 0 14px; font: 700 22px/1.2 var(--font-display); }
 .skill-context { margin: 0 0 20px; padding: 14px 16px; border-radius: var(--radius); background: var(--accent-soft); border: 1px solid rgba(198, 240, 106, .25); color: var(--fg-soft); }
 .skill-context p { margin: 3px 0; }
 .skill-context p:first-child { color: var(--fg); font-weight: 700; }

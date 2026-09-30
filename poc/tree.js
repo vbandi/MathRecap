@@ -640,7 +640,7 @@ function renderPanel() {
 
     <div class="actions">
       <button data-act="path">Ezt akarom tanulni</button>
-      <button class="ghost" data-act="practice">Gyakorlás →</button>
+      <button class="ghost" data-act="practice">Szemléltetés és gyakorlás →</button>
     </div>`;
 }
 

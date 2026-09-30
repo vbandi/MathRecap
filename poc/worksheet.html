@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="/vendor/katex/katex.min.css">
 <link rel="stylesheet" href="theme.css">
 <link rel="stylesheet" href="print.css">
+<link rel="stylesheet" href="illustrations/illustrations.css">
 </head>
 <body>
   <header class="topbar app-chrome">
@@ -15,10 +16,18 @@
     <a class="btn ghost" href="index.html" aria-label="Vissza a készségfához">← Vissza a fához</a>
   </header>
   <main>
-    <section class="request-panel app-chrome" aria-labelledby="workspace-title">
+    <header class="page-intro app-chrome">
       <p class="eyebrow">Gyakorlás</p>
-      <h1 id="workspace-title">Feladatlap</h1>
+      <h1 id="skill-title">Feladatlap</h1>
       <div id="skill-context" class="skill-context"></div>
+    </header>
+    <section id="illustration" class="illustration app-chrome" aria-labelledby="illustration-title" hidden>
+      <p class="eyebrow">Szemléltetés</p>
+      <h2 id="illustration-title">Nézd meg, hogyan működik</h2>
+      <div id="illustration-root"><p class="il-loading">Betöltés...</p></div>
+    </section>
+    <section class="request-panel app-chrome" aria-labelledby="workspace-title">
+      <h2 id="workspace-title">Feladatlap készítése</h2>
       <label for="worksheet-request">Mit gyakorolnál?</label>
       <textarea id="worksheet-request" class="input" maxlength="2000">Kérek fokozatos, önálló gyakorlást.</textarea>
       <div class="request-actions">

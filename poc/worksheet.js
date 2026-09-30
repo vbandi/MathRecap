@@ -1,3 +1,4 @@
+import { illustrations, hasIllustration } from "./illustrations/registry.js";
 import { loadLocalState } from "./state.js";
 import { needsInlineMathSeparator, orderedProblemPairs, studentProblems } from "./worksheet-model.mjs";
 
@@ -150,7 +151,27 @@ if (!skill) {
   context.textContent = "A kiválasztott készség nem található. Térj vissza a fához, és válassz egy csomópontot.";
   generateButton.disabled = true;
 } else {
-  context.replaceChildren(element("p", `${skill.id} - ${skill.name}`), element("p", skill.description));
+  document.title = `MathRecap - ${skill.name}`;
+  document.getElementById("skill-title").textContent = skill.name;
+  context.replaceChildren(element("p", skill.id), element("p", skill.description));
+  mountIllustration(skill.id);
+}
+
+// ?dev-illustration loads an unregistered module by naming convention, for authoring.
+async function mountIllustration(skillId) {
+  const devMode = new URLSearchParams(window.location.search).has("dev-illustration");
+  const load = hasIllustration(skillId) ? illustrations[skillId] : devMode ? () => import(`./illustrations/${skillId.toLowerCase()}.js`) : null;
+  if (!load) return;
+  const section = document.getElementById("illustration");
+  const root = document.getElementById("illustration-root");
+  section.hidden = false;
+  try {
+    const { mount } = await load();
+    root.replaceChildren();
+    mount(root);
+  } catch {
+    root.replaceChildren(element("p", "A szemléltetés most nem tölthető be.", "il-loading"));
+  }
 }
 generateButton.addEventListener("click", generate);
 retryButton.addEventListener("click", generate);
