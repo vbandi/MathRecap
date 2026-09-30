@@ -1,0 +1,1996 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Valószínűség animációkkal</title>
+<style>
+:root {
+  --bg: #0e1120; --bg2: #151a2c; --card: #1b2136; --input: #0a0d19; --line: #262d48; --line-strong: #3a4368;
+  --ink: #eef0f8; --fg-soft: #ccd2e6; --muted: #8e97b8;
+  --accent: #c6f06a; --accent-ink: #172006; --accent-soft: rgba(198, 240, 106, .14);
+  --ai: #ffb86b; --good: #00A085; --warn: #ff9a70; --bad: #D94F45;
+  --c0: #D94F45; --c1: #0B84D6; --c2: #00A085; --c3: #E8A33D; --c4: #6C5CE7; --c5: #C2559E; --c6: #8e97b8;
+  --radius: 12px; --radius-sm: 8px;
+  --shadow: 0 18px 50px rgba(3, 5, 14, .5);
+  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-display: ui-rounded, "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+  color-scheme: dark;
+  scrollbar-color: var(--line-strong) transparent;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; color: var(--ink); font: 14px/1.6 var(--font);
+  background: radial-gradient(1200px 600px at 50% -10%, rgba(198,240,106,.05), transparent 60%),
+    linear-gradient(rgba(142,151,184,.045) 1px, transparent 1px) 0 0 / 28px 28px,
+    linear-gradient(90deg, rgba(142,151,184,.045) 1px, transparent 1px) 0 0 / 28px 28px, var(--bg); }
+button, input { font: inherit; }
+::selection { background: var(--accent); color: var(--accent-ink); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.topbar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  min-height: 52px; padding: 8px 16px; background: rgba(21,26,44,.92); border-bottom: 1px solid var(--line); backdrop-filter: blur(8px); }
+.brand { display: flex; align-items: center; gap: 9px; white-space: nowrap; font: 700 15px/1 var(--font-display); letter-spacing: .2px; }
+.brand small { color: var(--muted); font: 400 12px/1 var(--font); }
+.logo { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; background: var(--accent); color: var(--accent-ink);
+  font: 800 16px/1 var(--font-display); transform: rotate(-6deg); box-shadow: 0 0 0 3px var(--accent-soft); }
+nav { display: flex; gap: 6px; flex-wrap: wrap; }
+nav button { display: flex; align-items: center; gap: 6px; padding: 4px 11px 4px 8px; border-radius: 999px; border: 1px solid var(--line);
+  background: transparent; color: var(--fg-soft); font-size: 12px; cursor: pointer;
+  transition: background-color .12s, border-color .12s, transform .12s; }
+nav button:hover { color: var(--ink); border-color: var(--line-strong); background: var(--card); transform: translateY(-1px); }
+nav button i { width: 9px; height: 9px; border-radius: 3px; display: block; transform: rotate(45deg); background: var(--c); }
+nav button[aria-selected="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+main { max-width: 940px; margin: 0 auto; padding: 22px 16px 60px; }
+section[hidden] { display: none; }
+.eyebrow { margin: 0; color: var(--accent); font: 700 11px/1.2 var(--font); text-transform: uppercase; letter-spacing: .12em; }
+h2 { margin: 6px 0 6px; font: 700 26px/1.2 var(--font-display); }
+p { color: var(--fg-soft); }
+.card { background: rgba(27,33,54,.86); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; margin: 14px 0; box-shadow: var(--shadow); backdrop-filter: blur(8px); }
+.card h3 { margin: 0 0 8px; font: 700 12px/1.3 var(--font); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.card > h3:not(:first-child) { margin-top: 16px; }
+.key { padding: 12px 14px; border: 1px solid rgba(255,184,107,.28); border-radius: var(--radius); background: rgba(255,184,107,.07); color: var(--fg-soft); margin: 14px 0; }
+.key > b:first-child { color: var(--ai); }
+.key > b:first-child::before { content: "✦ "; }
+.formula { font: 1.1rem/1.5 var(--font-mono); text-align: center; padding: 8px; color: var(--fg-soft); }
+.formula b { color: var(--accent); }
+.muted { color: var(--muted); font-size: 12.5px; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin: 10px 0; }
+.controls label { display: inline-flex; gap: 8px; align-items: center; font-size: 13px; color: var(--fg-soft); }
+.controls label b { color: var(--accent); font-family: var(--font-mono); min-width: 2ch; }
+button.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1px solid var(--accent); border-radius: 999px;
+  background: var(--accent); color: var(--accent-ink); font-weight: 600; cursor: pointer; transition: transform .12s, background-color .12s; }
+button.btn:hover:not(:disabled) { transform: translateY(-1px); background: #d6f78a; }
+button.btn.ghost { background: transparent; border-color: var(--line-strong); color: var(--fg-soft); font-weight: 500; }
+button.btn.ghost:hover:not(:disabled) { background: var(--card); border-color: var(--muted); color: var(--ink); }
+button.btn:disabled { opacity: .5; cursor: not-allowed; }
+input[type=range] { accent-color: var(--accent); }
+.chip { display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 30px; padding: 0 8px; border-radius: 8px; color: #fff; font-weight: 700; font-size: .85rem; }
+.toggle { border: 1px solid var(--line-strong); background: transparent; color: var(--fg-soft); border-radius: 999px; padding: 5px 13px; cursor: pointer; font-size: 13px;
+  transition: background-color .12s, color .12s, border-color .12s; }
+.toggle:hover { background: var(--card); color: var(--ink); }
+.toggle[aria-pressed="true"] { border-color: var(--c); background: var(--c); color: #fff; }
+.toggle.accent[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.stepper { display: inline-flex; align-items: center; gap: 6px; }
+.stepper button { width: 26px; height: 26px; border-radius: 9px; border: 1px solid var(--line-strong); background: var(--input); color: var(--fg-soft); cursor: pointer; }
+.stepper button:hover { color: var(--accent); border-color: var(--accent); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 700px) { .two { grid-template-columns: 1fr; } .brand small { display: none; } }
+canvas { width: 100%; height: auto; display: block; border-radius: var(--radius-sm); background: var(--input); border: 1px solid var(--line); }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th { color: var(--muted); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
+th, td { border-bottom: 1px dashed var(--line); padding: 6px 8px; text-align: left; }
+td.cur { background: var(--accent-soft); color: var(--accent); }
+
+.jar { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; padding: 14px; min-height: 96px;
+  border: 1px solid var(--line-strong); border-top-color: transparent; border-radius: 0 0 36px 36px; background: var(--input); }
+.marble { width: 30px; height: 30px; border-radius: 9px; transform: rotate(45deg) scale(.8); background: var(--c); border: 1.5px solid rgba(255,255,255,.35);
+  transition: transform .4s cubic-bezier(.3,1.6,.5,1), opacity .4s, filter .3s; }
+.marble.dim { opacity: .28; filter: grayscale(.6); }
+.marble.glow { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
+.marble.lift { transform: translateY(-46px) rotate(45deg) scale(1.05); }
+.marble.gone { opacity: .12; transform: rotate(45deg) scale(.5); }
+.marble.flash { transform: rotate(45deg) scale(1.15); }
+.tray { display: flex; gap: 10px; min-height: 44px; align-items: center; }
+.tray .slot { width: 40px; height: 40px; border: 1.5px dashed var(--line-strong); border-radius: 10px; display: grid; place-items: center; }
+.tray .slot .marble { animation: pop .4s ease-out; }
+@keyframes pop { from { opacity: 0; transform: rotate(45deg) scale(.2); } }
+.bar { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 12.5px; color: var(--fg-soft); }
+.bar .track { position: relative; flex: 1; height: 14px; background: var(--input); border-radius: 999px; border: 1px solid var(--line); }
+.bar .fill { position: absolute; inset: 0 auto 0 0; background: var(--accent); border-radius: 999px; transition: width .25s; }
+.bar .theory { position: absolute; top: -3px; bottom: -3px; width: 3px; background: var(--ai); border-radius: 2px; }
+
+.stage { position: relative; height: 66px; margin: 12px auto; }
+.token { position: absolute; top: 4px; width: 56px; height: 56px; border-radius: var(--radius-sm); color: #fff; font: 800 1.3rem var(--font-display);
+  display: grid; place-items: center; background: var(--c); border: 1.5px solid rgba(255,255,255,.35);
+  transition: left .45s cubic-bezier(.5,0,.2,1); box-shadow: 0 4px 14px rgba(3,5,14,.5); }
+.slots { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; margin: 8px 0; }
+.slotbox { min-width: 44px; height: 44px; padding: 0 10px; border: 1.5px solid var(--accent); border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--accent);
+  display: grid; place-items: center; font: 800 16px var(--font-display); opacity: 0; transform: translateY(8px); animation: slotIn .45s forwards; }
+@keyframes slotIn { to { opacity: 1; transform: none; } }
+.times { opacity: 0; animation: slotIn .45s forwards; color: var(--muted); }
+
+.cases { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+@media (max-width: 700px) { .cases { grid-template-columns: 1fr; } }
+.case { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; background: var(--input); border-top: 3px solid var(--c); }
+.case h4 { margin: 0 0 4px; font: 700 13px var(--font-display); color: var(--ink); }
+.numbers { display: flex; flex-wrap: wrap; gap: 4px; min-height: 60px; margin: 6px 0; }
+.num { padding: 1px 6px; border-radius: 5px; background: var(--c); color: #fff; font: 12px var(--font-mono); animation: pop .25s ease-out; }
+.count { font: 800 26px var(--font-display); color: var(--c); }
+
+svg text { fill: var(--fg-soft); font: 12px var(--font); }
+.edge { fill: none; stroke: var(--line-strong); stroke-width: 1.6; stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw .5s forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+.node { opacity: 0; animation: fadeIn .35s forwards; }
+@keyframes fadeIn { to { opacity: 1; } }
+
+.combos { display: flex; flex-wrap: wrap; gap: 8px; }
+.combo { display: inline-flex; gap: 3px; padding: 4px; border: 1px solid var(--line); border-radius: 10px; background: var(--input); opacity: 0; animation: fadeIn .35s forwards; }
+.combo .chip { min-width: 24px; height: 24px; padding: 0 4px; border-radius: 6px; font-size: .75rem; }
+.orderings { display: flex; flex-wrap: wrap; gap: 8px; }
+.ordering { position: relative; display: inline-flex; gap: 3px; padding: 4px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--card);
+  transition: transform .9s cubic-bezier(.5,0,.2,1), opacity .9s; }
+.ordering.merged { transform: translate(var(--dx), var(--dy)); opacity: 0; }
+.ordering.first { z-index: 2; }
+.ordering.first.done { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+.binom { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 3px; padding: 0 7px;
+  border-left: 1.5px solid currentColor; border-right: 1.5px solid currentColor; border-radius: 12px / 50%; line-height: 1.15; font-size: .92em; }
+.binom > span { display: block; text-align: center; }
+.frac { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 4px; line-height: 1.3; }
+.frac > span { display: block; padding: 0 5px; text-align: center; }
+.frac > span:first-child { border-bottom: 1.5px solid currentColor; }
+.var { font-style: italic; font-weight: 700; }
+.slot { display: inline-block; font-weight: 700; transition: opacity .2s; }
+.slot.landed { animation: land .5s ease-out; }
+@keyframes land { 40% { transform: scale(1.35); } }
+.later { transition: opacity .4s; }
+.flyer { position: fixed; z-index: 30; pointer-events: none; font: 700 1.1rem var(--font-mono); text-shadow: 0 0 8px var(--bg); }
+#hg-total-label { color: var(--c1) !important; } #hg-good-label { color: var(--c0) !important; }
+#hg-draw-label { color: var(--c3) !important; } #hg-k-label { color: var(--accent) !important; }
+.vbars { position: relative; }
+.emarker { position: absolute; top: 0; bottom: 18px; width: 0; border-left: 2px dashed var(--accent); transition: left .9s cubic-bezier(.3,.7,.2,1); pointer-events: none; z-index: 3; }
+.emarker.sample { border-left-color: var(--ai); border-left-style: solid; opacity: .8; }
+.emarker span { position: absolute; top: -4px; left: 4px; white-space: nowrap; font: 700 11px var(--font-mono); color: var(--accent); background: var(--bg); padding: 0 4px; border-radius: 4px; }
+.emarker.sample span { color: var(--ai); top: 14px; }
+.ev-terms { display: flex; flex-wrap: wrap; gap: 6px; min-height: 40px; margin: 8px 0; }
+.ev-term { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--input); font: 13px var(--font-mono); animation: pop2 .35s ease-out; }
+.ev-term .frac { font-size: .85em; margin: 0 2px; }
+@keyframes pop2 { from { opacity: 0; transform: translateY(8px) scale(.85); } }
+.contribution { opacity: 0; animation: fadeIn .4s forwards; }
+.later-eval { opacity: 0; animation: fadeIn .5s forwards; line-height: 1.9; }
+.perm-group { border: 1px solid var(--line); border-top: 3px solid var(--c); border-radius: var(--radius-sm); padding: 8px 10px; margin: 8px 0; background: var(--input); }
+.perm-group h4 { margin: 0 0 6px; font: 700 12px var(--font-display); color: var(--c); }
+.perm-group.nested { margin: 6px 0 4px 12px; padding: 4px 8px; border: 0; border-left: 3px solid var(--c); border-radius: 0 6px 6px 0; background: rgba(142,151,184,.05); }
+.perm-group.nested h4 { font-size: 11px; font-weight: 600; margin-bottom: 4px; }
+.perm-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.perm-sub, .perm-flat { display: inline-flex; flex-wrap: wrap; gap: 3px; padding: 3px; border-radius: 8px; background: rgba(142,151,184,.06); }
+.perm-chip { padding: 1px 6px; border: 1px solid var(--line); border-radius: 5px; background: transparent; color: var(--muted); font: 11px var(--font-mono); cursor: pointer; transition: background-color .15s, color .15s, transform .15s; }
+.perm-chip:hover { color: var(--ink); border-color: var(--line-strong); }
+.perm-chip.seen { color: var(--fg-soft); border-color: var(--line-strong); }
+.perm-chip.current { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); transform: scale(1.18); font-weight: 700; }
+.dice-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; max-width: 420px; margin: 12px auto; }
+.dice-cell { padding: 7px 0; text-align: center; border-radius: 9px; border: 1px solid var(--line); background: var(--input);
+  font: 600 13px var(--font-mono); color: var(--muted); transition: background-color .3s, color .3s, transform .3s, border-color .3s; }
+.dice-cell.fav { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); transform: scale(1.06); }
+.vbars { display: flex; align-items: flex-end; gap: 6px; height: 120px; padding-top: 8px; }
+.vbars.tall { height: 190px; }
+.vcol { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; min-width: 0; font-size: 11px; color: var(--muted); }
+.vcol .vbar-wrap { position: relative; width: 100%; flex: 1; display: flex; align-items: flex-end; }
+.vcol .vbar { width: 100%; border-radius: 6px 6px 0 0; background: var(--c5); height: 0; transition: height .7s cubic-bezier(.2,.8,.2,1), background-color .3s; opacity: .85; }
+.vcol.on .vbar { background: var(--accent); opacity: 1; }
+.vcol .vmark { position: absolute; left: -2px; right: -2px; height: 3px; background: var(--ai); border-radius: 2px; transition: bottom .3s; display: none; }
+.vcol span { margin-top: 3px; }
+.vcol .vval { color: var(--fg-soft); font-family: var(--font-mono); }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="logo" aria-hidden="true">√</span>MathRecap <small>valószínűség animációkkal</small></div>
+  <nav id="tabs" role="tablist"></nav>
+</header>
+<main>
+
+<!-- 1. Probability -->
+<section id="s-prob" data-title="ESE-24 Fogalom" data-eyebrow="ESE-24 · A valószínűség fogalma" hidden>
+  <h2>Valószínűség számítása</h2>
+  <p>Ha minden kihúzható golyónak egyforma esélye van, akkor egy esemény valószínűsége: <b>hány golyó jó nekünk</b> az <b>összesből</b>.</p>
+  <div class="formula">P(esemény) = <b>kedvező esetek</b> / <b>összes eset</b></div>
+  <div class="card">
+    <h3>Az urna</h3>
+    <div class="controls" id="prob-counts"></div>
+    <div class="controls"><span>Melyik színek számítanak <b>kedvezőnek</b>?</span><span id="prob-event"></span></div>
+    <div class="jar" id="prob-jar"></div>
+    <div class="formula" id="prob-formula"></div>
+  </div>
+  <div class="card">
+    <h3>A valószínűség tulajdonságai</h3>
+    <div class="controls">
+      <button class="btn ghost" id="prob-none">Lehetetlen esemény</button>
+      <button class="btn ghost" id="prob-all">Biztos esemény</button>
+      <span class="muted">Kattints, és nézd meg, mi történik a sávokkal.</span>
+    </div>
+    <div class="bar"><span style="width:170px">P(kedvező)</span><div class="track"><div class="fill" id="prob-p"></div></div><b id="prob-p-val"></b></div>
+    <div class="bar"><span style="width:170px">P(nem kedvező) = 1 − P</span><div class="track"><div class="fill" id="prob-q" style="background:var(--c3)"></div></div><b id="prob-q-val"></b></div>
+    <ul class="muted">
+      <li>Mindig 0 ≤ P ≤ 1. A <b>lehetetlen</b> esemény valószínűsége 0, a <b>biztosé</b> 1.</li>
+      <li>Egy esemény és a <b>komplementere</b> együtt mindent lefed: P + (1 − P) = 1.</li>
+      <li>A kísérletek alapján a valószínűség az az érték, amely köré a relatív gyakoriság <b>stabilizálódik</b>.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Mi történik, ha sokszor húzunk?</h3>
+    <div class="controls">
+      <button class="btn" data-n="1">Húzás</button>
+      <button class="btn" data-n="10">10 húzás</button>
+      <button class="btn" data-n="300">300 húzás</button>
+      <button class="btn ghost" id="prob-reset">Nullázás</button>
+      <span class="muted" id="prob-stats"></span>
+    </div>
+    <canvas id="prob-chart" width="720" height="240"></canvas>
+    <p class="muted">A zöld vonal a megfigyelt relatív gyakoriság, a narancs szaggatott vonal az elméleti valószínűség. Kevés húzásnál ingadozik, sokat húzva ráugrik az elméleti értékre – ez a nagy számok törvénye.</p>
+  </div>
+  <div class="key"><b>Kulcsgondolat:</b> a valószínűség 0 és 1 közötti szám. 0 = lehetetlen, 1 = biztos. A „kedvező / összes” szabály csak akkor igaz, ha az összes eset <i>egyformán valószínű</i>.</div>
+</section>
+
+<!-- 2. Factorial and permutations -->
+<section id="s-perm" data-title="Faktoriális, permutációk" data-eyebrow="Előzmény · ESE-05" hidden>
+  <h2>Faktoriális és permutációk</h2>
+  <p>Hányféleképpen állíthatunk sorba <b>n</b> különböző dolgot? Az első helyre n közül választhatunk, a másodikra már csak n−1 közül, és így tovább.</p>
+  <div class="card">
+    <div class="controls">
+      <label>Elemek száma (n): <input type="range" id="perm-n" min="1" max="6" value="3"><b id="perm-n-label"></b></label>
+    </div>
+    <div class="slots" id="perm-slots"></div>
+    <div class="formula" id="perm-formula"></div>
+  </div>
+  <div class="card">
+    <h3>Az összes sorrend</h3>
+    <div class="stage" id="perm-stage"></div>
+    <div class="controls">
+      <button class="btn" id="perm-play">Lejátszás</button>
+      <button class="btn ghost" id="perm-step">Következő sorrend</button>
+      <label>Sebesség: <input type="range" id="perm-speed" min="1" max="10" value="4"></label>
+      <b id="perm-counter"></b>
+    </div>
+    <p class="muted">Az összes sorrend rendszerezve: először az A-val kezdődők, azon belül a B-vel kezdődők, azon belül a C-vel kezdődők, és így tovább. Minden szinten eggyel kevesebb elem közül választhatunk, ezért szorzunk: n · (n−1) · … Kattints egy sorrendre, hogy a fenti sávban is látsd!</p>
+    <div id="perm-list"></div>
+  </div>
+  <div class="card">
+    <h3>A faktoriális gyorsan nő</h3>
+    <div id="perm-table"></div>
+  </div>
+  <div class="key"><b>Kulcsgondolat:</b> n! = n · (n−1) · … · 2 · 1, és megegyezés szerint 0! = 1 (az üres sorba állításnak pontosan egy módja van). n különböző elem sorbarendezéseinek száma: <b>Pₙ = n!</b></div>
+</section>
+
+<!-- 3. Multiplication principle and case split -->
+<section id="s-mult" data-title="Szorzási elv, esetek" data-eyebrow="Előzmény · ESE-04" hidden>
+  <h2>Szorzási elv és esetszétválasztás</h2>
+  <p><b>Szorzási elv:</b> ha egymás után döntünk, és minden döntésnél ugyanannyi lehetőség van attól függetlenül, mit választottunk korábban, akkor a lehetőségeket <b>összeszorozzuk</b>.</p>
+  <div class="card">
+    <h3>Öltözködés: fa-diagram</h3>
+    <div class="controls">
+      <label>Pólók: <input type="range" id="tree-a" min="1" max="3" value="2"><b id="tree-a-label"></b></label>
+      <label>Nadrágok: <input type="range" id="tree-b" min="1" max="3" value="2"><b id="tree-b-label"></b></label>
+      <label>Cipők: <input type="range" id="tree-c" min="1" max="2" value="2"><b id="tree-c-label"></b></label>
+      <button class="btn ghost" id="tree-replay">Újrajátszás</button>
+    </div>
+    <svg id="tree-svg" width="100%" viewBox="0 0 600 100"></svg>
+    <div class="formula" id="tree-formula"></div>
+    <p class="muted">Minden végpont (levél) egy különböző összeállítás. Minden ágnál új ágak nőnek, ezért szorzunk.</p>
+  </div>
+
+  <p><b>Esetszétválasztás:</b> ha a feladat különböző helyzetekre bomlik, amelyekben más-más a számolás, akkor <b>külön megszámoljuk</b> az eseteket, és az eredményeket <b>összeadjuk</b> – a szorzási elv az egyes esetekben segít.</p>
+  <div class="card">
+    <h3>Hány háromjegyű páros szám készíthető a 0, 1, 2, 3, 4 számjegyekből, ha egy számjegy csak egyszer szerepelhet?</h3>
+    <div class="controls"><button class="btn" id="case-play">Lejátszás</button></div>
+    <div class="cases" id="case-grid"></div>
+    <div class="formula" id="case-total"></div>
+    <p class="muted">Miért kell szétválasztani? Ha a 0 az utolsó jegy, az első jegy bármi lehet (a 0 már el van használva). Ha 2 vagy 4 az utolsó, akkor az első jegy nem lehet 0, és a 0 a középső helyre kerülhet – itt más a számolás.</p>
+  </div>
+  <div class="key"><b>Kulcsgondolat:</b> „és” (egymás után) → <b>szorzás</b>; „vagy” (külön esetek) → <b>összeadás</b>. Az esetek ne fedjék át egymást, és mindent fedjenek le.</div>
+</section>
+
+<!-- 4. Combinations -->
+<section id="s-comb" data-title="Kombinációk" data-eyebrow="Előzmény · ESE-06" hidden>
+  <h2>Kombinációk</h2>
+  <p>Ha <b>kiválasztunk</b> k dolgot n közül, és a <b>sorrend nem számít</b> (csak az, hogy kik kerültek be), akkor kombinációról beszélünk.</p>
+  <div class="card">
+    <div class="controls">
+      <label>Összes elem (n): <input type="range" id="comb-n" min="3" max="7" value="5"><b id="comb-n-label"></b></label>
+      <label>Kiválasztott (k): <input type="range" id="comb-k" min="1" max="6" value="3"><b id="comb-k-label"></b></label>
+    </div>
+    <div class="formula" id="comb-formula"></div>
+  </div>
+  <div class="card">
+    <h3>1. lépés: számoljuk a sorrendet is</h3>
+    <p id="comb-ordered"></p>
+    <h3>2. lépés: egy csapat ugyanannyiszor szerepel, ahányféleképp a tagjait sorba lehet állítani</h3>
+    <p class="muted">Alább a <span id="comb-team"></span> csapat összes sorrendje. Sorrenddel számolva ezek mind külön esetek, de valójában ugyanaz a csapat.</p>
+    <div class="orderings" id="comb-orderings"></div>
+    <div class="controls"><button class="btn" id="comb-merge">Vonjuk össze őket!</button><button class="btn ghost" id="comb-unmerge">Vissza</button></div>
+    <p id="comb-merge-text" class="muted"></p>
+  </div>
+  <div class="card">
+    <h3>3. lépés: az összes lehetséges csapat</h3>
+    <div class="combos" id="comb-list"></div>
+  </div>
+  <div class="key"><b>Kulcsgondolat:</b> a kombinációk száma = a sorrendes választások száma ÷ egy csapat sorbaállításainak száma:
+    <div class="formula"><span class="binom"><span>n</span><span>k</span></span> = <span class="frac"><span>n!</span><span>k! · (n−k)!</span></span></div>
+    Szimmetria: <span class="binom"><span>n</span><span>k</span></span> = <span class="binom"><span>n</span><span>n−k</span></span> – mindegy, hogy kiket választunk be, vagy kiket hagyunk ki.</div>
+</section>
+
+<!-- 5. Exclusive and independent events -->
+<section id="s-events" data-title="ESE-26 Kizáró, független" data-eyebrow="ESE-26 · Egymást kizáró és független események" hidden>
+  <h2>Egymást kizáró és független események</h2>
+  <p>A négyzet pontjai a lehetséges kimenetelek. Az A és B esemény a négyzet egy-egy része; a pontok véletlenszerűen esnek bele.</p>
+  <div class="card">
+    <div class="controls">
+      <button class="toggle accent" id="ev-mode-excl" aria-pressed="true">Egymást kizáró</button>
+      <button class="toggle accent" id="ev-mode-indep" aria-pressed="false">Független</button>
+      <label>P(A): <input type="range" id="ev-a" min="5" max="95" value="40"><b id="ev-a-label"></b></label>
+      <label>P(B): <input type="range" id="ev-b" min="5" max="95" value="30"><b id="ev-b-label"></b></label>
+    </div>
+    <div class="two">
+      <div>
+        <canvas id="ev-canvas" width="360" height="360"></canvas>
+        <div class="controls"><button class="btn" id="ev-play">Szünet</button><button class="btn ghost" id="ev-reset">Nullázás</button></div>
+      </div>
+      <div>
+        <p id="ev-explain"></p>
+        <table id="ev-table"></table>
+      </div>
+    </div>
+  </div>
+  <div class="two">
+    <div class="key"><b>Egymást kizáró:</b> nem következhetnek be egyszerre, A ∩ B = ∅.<div class="formula">P(A ∪ B) = P(A) + P(B)</div></div>
+    <div class="key"><b>Független:</b> az egyik bekövetkezése nem változtatja a másik esélyét.<div class="formula">P(A ∩ B) = P(A) · P(B)</div></div>
+  </div>
+  <div class="key"><b>Gyakori csapda:</b> a kizáró és a független <i>nem ugyanaz</i>! Ha A és B kizárják egymást (és lehetségesek), akkor pont <i>függők</i>: ha tudom, hogy A bekövetkezett, akkor B biztosan nem.</div>
+</section>
+
+<!-- 6. Sampling -->
+<section id="s-sample" data-title="ESE-27 Mintavétel" data-eyebrow="ESE-27 · Valószínűség mintavételnél" hidden>
+  <h2>Visszatevéses és visszatevés nélküli mintavétel</h2>
+  <p>Húzzunk az urnából egymás után két golyót. Visszatevéssel a húzott golyó visszakerül, tehát minden húzásnál ugyanaz az urna. Visszatevés nélkül a húzott golyó kint marad, ezért a második húzásnál már <b>megváltozik</b> az esélyünk.</p>
+  <div class="card">
+    <div class="controls">
+      <button class="toggle accent" id="sm-mode-with" aria-pressed="true">Visszatevéses</button>
+      <button class="toggle accent" id="sm-mode-without" aria-pressed="false">Visszatevés nélküli</button>
+      <label>Piros: <span class="stepper"><button data-color="red" data-d="-1">−</button><b id="sm-red-label"></b><button data-color="red" data-d="1">+</button></span></label>
+      <label>Kék: <span class="stepper"><button data-color="blue" data-d="-1">−</button><b id="sm-blue-label"></b><button data-color="blue" data-d="1">+</button></span></label>
+    </div>
+    <div class="jar" id="sm-jar" style="padding-top:56px"></div>
+    <div class="controls">
+      <button class="btn" id="sm-draw">Húzás</button>
+      <button class="btn ghost" id="sm-again">Új próba</button>
+      <span>Kihúzott:</span><div class="tray" id="sm-tray"></div>
+    </div>
+    <div class="formula" id="sm-next"></div>
+  </div>
+  <div class="card">
+    <h3>Az elmélet és a kísérlet</h3>
+    <div class="controls"><button class="btn" id="sm-sim">1000 próba egyszerre</button><span class="muted" id="sm-tally-info"></span></div>
+    <table id="sm-table"></table>
+    <div id="sm-bars"></div>
+  </div>
+  <div class="card">
+    <h3>Általános eset: n golyót húzunk N-ből, ebből K jó</h3>
+    <p class="muted">Mi a valószínűsége, hogy a kihúzott n golyó között <b>pontosan k</b> olyan van, amelyiknek megvan a keresett tulajdonsága (a K „jó” golyó egyike)?</p>
+    <div class="controls">
+      <button class="toggle accent" id="hg-mode-without" aria-pressed="true">Visszatevés nélkül</button>
+      <button class="toggle accent" id="hg-mode-with" aria-pressed="false">Visszatevéssel</button>
+    </div>
+    <div class="controls">
+      <label>Összes golyó (N): <input type="range" id="hg-total" min="4" max="20" value="10"><b id="hg-total-label"></b></label>
+      <label>Ebből jó (K): <input type="range" id="hg-good" min="0" max="20" value="4"><b id="hg-good-label"></b></label>
+      <label>Húzunk (n): <input type="range" id="hg-draw" min="1" max="8" value="3"><b id="hg-draw-label"></b></label>
+      <label>Kérdés: pontosan k = <input type="range" id="hg-k" min="0" max="8" value="1"><b id="hg-k-label"></b></label>
+    </div>
+    <div class="jar" id="hg-jar" style="padding-top:56px"></div>
+    <div class="controls">
+      <button class="btn" id="hg-draw-once">Húzás</button>
+      <button class="btn" id="hg-draw-many">1000 húzás</button>
+      <button class="btn ghost" id="hg-reset">Nullázás</button>
+      <span id="hg-result" class="muted"></span>
+    </div>
+    <p class="muted" style="margin-bottom:0">Az általános képlet (X = a kihúzott „jó” golyók száma):</p>
+    <div class="formula" id="hg-generic"></div>
+    <p class="muted" style="margin-bottom:0">A te számaiddal:</p>
+    <div class="formula" id="hg-formula"></div>
+    <div class="vbars tall" id="hg-bars"></div>
+    <p class="muted">Az oszlopok: annak valószínűsége, hogy a húzott n golyó között pontosan 0, 1, 2, … jó van. A kiemelt oszlop a kérdéses k; a narancs jel a kísérletekben megfigyelt gyakoriság.</p>
+    <p class="muted" id="hg-explain"></p>
+    <h3>Várható érték</h3>
+    <div class="formula" id="hg-mean"></div>
+    <p class="muted" id="hg-mean-note"></p>
+  </div>
+  <div class="key"><b>Kulcsgondolat:</b> visszatevéssel a húzások <b>függetlenek</b>, ezért az esélyeket egyszerűen összeszorozzuk. Visszatevés nélkül a második tört nevezője és (általában) számlálója is változik. Az elsőt kihúztuk, ez a <i>feltételes valószínűség</i>.</div>
+</section>
+
+<!-- ESE-08 Sampling kinds -->
+<section id="s-kinds" data-title="ESE-08 Mintavétel fajtái" data-eyebrow="ESE-08 · Mintavétel visszatevéssel és visszatevés nélkül" hidden>
+  <h2>Mintavétel visszatevéssel és anélkül</h2>
+  <p>Ha k elemet húzunk n közül, az első kérdés mindig: <b>visszakerül-e</b> a kihúzott elem, vagyis <b>kihúzható-e újra</b>?</p>
+  <div class="card">
+    <h3>Hány sorrendes minta lehetséges?</h3>
+    <div class="controls">
+      <label>Elemek (n): <input type="range" id="kd-n" min="3" max="5" value="4"><b id="kd-n-label"></b></label>
+      <label>Húzások (k): <input type="range" id="kd-k" min="1" max="3" value="2"><b id="kd-k-label"></b></label>
+    </div>
+    <div class="two">
+      <div>
+        <h3>Visszatevéssel</h3>
+        <div class="slots" id="kd-with-slots"></div>
+        <div class="formula" id="kd-with-formula"></div>
+        <div class="combos" id="kd-with-list"></div>
+      </div>
+      <div>
+        <h3>Visszatevés nélkül</h3>
+        <div class="slots" id="kd-without-slots"></div>
+        <div class="formula" id="kd-without-formula"></div>
+        <div class="combos" id="kd-without-list"></div>
+      </div>
+    </div>
+    <p class="muted">Visszatevéssel minden húzásnál ugyanannyi lehetőség marad (n · n · …). Visszatevés nélkül minden húzással eggyel kevesebb (n · (n−1) · …). Az ábrán a minták sorrenddel értendők: AB és BA különböző.</p>
+  </div>
+  <div class="card">
+    <h3>Melyiket írja le a szöveg?</h3>
+    <p id="kd-question" style="font-size:16px;color:var(--ink)"></p>
+    <div class="controls">
+      <button class="btn" id="kd-answer-with">Visszatevéssel</button>
+      <button class="btn" id="kd-answer-without">Visszatevés nélkül</button>
+      <button class="btn ghost" id="kd-next">Következő</button>
+      <span class="muted" id="kd-score"></span>
+    </div>
+    <div class="key" id="kd-feedback" hidden></div>
+  </div>
+  <div class="key"><b>Kulcsgondolat:</b> keresd a <i>„visszatesszük”</i>, <i>„újra”</i> szavakat, vagy azt, hogy ugyanaz az elem többször is szerepelhet-e (kockadobás, PIN-kód). Ha egy elem csak egyszer szerepelhet (lottó, bizottság, kártyahúzás), akkor visszatevés nélküli a mintavétel.</div>
+</section>
+
+<!-- ESE-25 Classical model -->
+<section id="s-laplace" data-title="ESE-25 Klasszikus modell" data-eyebrow="ESE-25 · Klasszikus valószínűségi modell, Laplace-képlet" hidden>
+  <h2>Klasszikus modell, Laplace-képlet</h2>
+  <p>Ha az elemi események <b>egyformán valószínűek</b>, akkor P = kedvező / összes. A nehéz rész a két szám <b>megszámolása</b> – ehhez kell a kombinatorika.</p>
+  <div class="card">
+    <h3>Két kocka: 36 egyformán valószínű pár</h3>
+    <div class="controls">
+      <button class="toggle accent" data-kind="sum" aria-pressed="true">az összeg = s</button>
+      <button class="toggle accent" data-kind="atleast" aria-pressed="false">az összeg ≥ s</button>
+      <button class="toggle accent" data-kind="double" aria-pressed="false">két egyforma szám</button>
+      <label>s: <input type="range" id="lp-s" min="2" max="12" value="7"><b id="lp-s-label"></b></label>
+    </div>
+    <div class="dice-grid" id="lp-grid"></div>
+    <div class="formula" id="lp-formula"></div>
+  </div>
+  <div class="card">
+    <h3>Miért 36 eset, és nem 11?</h3>
+    <p class="muted">Az összegek (2…12) <b>nem</b> egyformán valószínűek: a 7-et 6 pár adja, a 2-t csak 1. Egyenlő esélyű elemi esemény a <i>kockapár</i>, nem az összeg.</p>
+    <div class="vbars" id="lp-sums"></div>
+  </div>
+  <div class="card">
+    <h3>Kombinatorikával számolunk: húzás egyszerre</h3>
+    <div class="controls">
+      <label>Összes golyó (N): <input type="range" id="lp-n" min="4" max="12" value="8"><b id="lp-n-label"></b></label>
+      <label>Ebből piros (R): <input type="range" id="lp-r" min="1" max="12" value="5"><b id="lp-r-label"></b></label>
+      <label>Húzunk (k): <input type="range" id="lp-k" min="1" max="5" value="2"><b id="lp-k-label"></b></label>
+    </div>
+    <div class="jar" id="lp-jar"></div>
+    <div class="formula" id="lp-comb"></div>
+    <p class="muted">Kedvező: a k húzott golyó mind piros → <span class="binom"><span>R</span><span>k</span></span> csapat. Összes: bármely k golyó → <span class="binom"><span>N</span><span>k</span></span> csapat. Mindkettő kombináció, mert a sorrend nem számít.</p>
+  </div>
+  <div class="key"><b>Kulcsgondolat:</b> a Laplace-képlet csak akkor igaz, ha az összes elemi esemény egyformán valószínű. Először ezt kell ellenőrizni, utána megszámolni a kedvező és az összes esetet – a szorzási elvvel vagy kombinációkkal.</div>
+</section>
+
+<!-- ESE-29 Discrete distribution -->
+<section id="s-dist" data-title="ESE-29 Eloszlás" data-eyebrow="ESE-29 · Diszkrét valószínűség-eloszlás" hidden>
+  <h2>Diszkrét valószínűség-eloszlás</h2>
+  <p>Egy kísérlet eredménye egy szám (érték). Az <b>eloszlás</b> megmondja, melyik értéket mekkora valószínűséggel kapjuk. A valószínűségek összege mindig 1.</p>
+  <div class="card">
+    <h3>Válassz kísérletet</h3>
+    <div class="controls" id="ds-picker"></div>
+    <div class="vbars tall" id="ds-bars"></div>
+    <div class="controls">
+      <span><b>Próbáljuk ki:</b> a kísérletek is követik az eloszlást</span>
+      <button class="btn" data-samples="1">1 minta</button>
+      <button class="btn" data-samples="100">100 minta</button>
+      <button class="btn" data-samples="2000">2000 minta</button>
+      <button class="btn ghost" id="ds-reset">Nullázás</button>
+      <span class="muted" id="ds-info"></span>
+    </div>
+    <p class="muted">A narancs jel az oszlopon a megfigyelt relatív gyakoriság. Sok mintánál az oszlopok tetejére áll. A narancs függőleges vonal a mintaátlag, ami sok mintánál a zöld vonalra, a várható értékre áll be.</p>    <div class="formula" id="ds-sum"></div>
+    <table id="ds-table"></table>
+  </div>
+  <div class="card">
+    <h3>Várható érték</h3>
+    <p class="muted">A várható érték az az átlag, amely körül az eredmények hosszú távon ingadoznak. Minden értéket megszorzunk a valószínűségével, és összeadjuk: <b>E(X) = Σ x · P(x)</b>. Az oszlopdiagramon ez az eloszlás „súlypontja”, ahol az ábra egyensúlyban lenne.</p>
+    <div class="controls"><button class="btn" id="ds-ev-play">Számold ki újra</button></div>
+    <div class="ev-terms" id="ds-ev-terms"></div>
+    <div class="formula" id="ds-ev-sum"></div>
+    <p class="muted" id="ds-ev-note"></p>
+  </div>
+  <div class="card">
+    <h3>Szerencsejáték: mennyit ér egy játék?</h3>
+    <p class="muted">A várható érték legjobb példája a szerencsejáték. Egy játék <b>várható nyereménye</b> = a nyeremények valószínűséggel súlyozott átlaga. Ha ez kisebb, mint az ár, a játékos hosszú távon veszít.</p>
+    <div class="controls" id="gm-picker"></div>
+    <div class="controls">
+      <label>Egy játék ára: <input type="range" id="gm-price" min="50" max="600" step="10"><b id="gm-price-label"></b> Ft</label>
+      <button class="btn ghost" id="gm-fair">Tisztességes ár</button>
+    </div>
+    <div class="two">
+      <div id="gm-visual"></div>
+      <div><table id="gm-table"></table></div>
+    </div>
+    <div class="formula" id="gm-formula"></div>
+    <div class="controls">
+      <button class="btn" id="gm-play">Játék</button>
+      <button class="btn" id="gm-x100">100 játék</button>
+      <button class="btn" id="gm-x5000">5000 játék</button>
+      <button class="btn ghost" id="gm-reset">Nullázás</button>
+      <span class="muted" id="gm-result"></span>
+    </div>
+    <canvas id="gm-chart" width="720" height="220"></canvas>
+    <p class="muted" id="gm-stats"></p>
+    <p class="muted">A zöld szaggatott vonal az elméleti várható nettó nyereség játékonként, a kék vonal az eddigi tényleges átlag. Kevés játéknál a szerencse dönt, sok játéknál az átlag a várható értékhez közelít.</p>
+  </div>
+  <div class="key"><b>Kulcsgondolat:</b> az eloszlás táblázata (érték → valószínűség) és az oszlopdiagram ugyanazt mondja el. Ellenőrzés: minden valószínűség 0 és 1 között van, és az összegük pontosan 1.</div>
+</section>
+
+</main>
+
+<script>
+"use strict";
+
+const $ = (selector, root = document) => root.querySelector(selector);
+const COLORS = ["var(--c0)", "var(--c1)", "var(--c2)", "var(--c3)", "var(--c4)", "var(--c5)", "var(--c6)"];
+const LETTERS = "ABCDEFG";
+const MARBLE_COLORS = { red: "var(--c0)", blue: "var(--c1)", green: "var(--c2)" };
+const MARBLE_NAMES = { red: "piros", blue: "kék", green: "zöld" };
+
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+const factorial = n => (n <= 1 ? 1 : n * factorial(n - 1));
+const choose = (n, k) => factorial(n) / (factorial(k) * factorial(n - k));
+const formatNumber = (x, digits = 3) => Number(x.toFixed(digits)).toString().replace(".", ",");
+const pick = list => list[Math.floor(Math.random() * list.length)];
+// "n alatt a k" stacked binomial coefficient and a stacked fraction, as HTML strings
+const binomialHtml = (n, k) => `<span class="binom"><span>${n}</span><span>${k}</span></span>`;
+const fractionHtml = (numerator, denominator) => `<span class="frac"><span>${numerator}</span><span>${denominator}</span></span>`;
+
+function make(tag, className, text) {
+  const element = document.createElement(tag);
+  if (className) element.className = className;
+  if (text !== undefined) element.textContent = text;
+  return element;
+}
+
+function bindRange(input, label, onChange) {
+  const update = () => { label.textContent = input.value; onChange(Number(input.value)); };
+  input.addEventListener("input", update);
+  return update;
+}
+
+/* ---------- 1. Probability ---------- */
+const probability = (() => {
+  const counts = { red: 3, blue: 2, green: 1 };
+  const selected = new Set(["red"]);
+  let total = 0, hits = 0, history = [], timer = null;
+
+  const jar = $("#prob-jar"), chart = $("#prob-chart");
+  const marbles = () => Object.entries(counts).flatMap(([color, count]) => Array.from({ length: count }, () => color));
+  const theory = () => {
+    const all = marbles();
+    return all.length ? all.filter(color => selected.has(color)).length / all.length : 0;
+  };
+
+  function renderControls() {
+    const wrapper = $("#prob-counts");
+    wrapper.replaceChildren();
+    for (const color of Object.keys(counts)) {
+      const label = make("label");
+      label.append(`${MARBLE_NAMES[color]}: `);
+      const stepper = make("span", "stepper");
+      const minus = make("button", "", "−"), plus = make("button", "", "+");
+      const value = make("b", "", String(counts[color]));
+      minus.onclick = () => change(color, -1);
+      plus.onclick = () => change(color, 1);
+      stepper.append(minus, value, plus);
+      label.append(stepper);
+      wrapper.append(label);
+    }
+    const eventBox = $("#prob-event");
+    eventBox.replaceChildren();
+    for (const color of Object.keys(counts)) {
+      const button = make("button", "toggle", MARBLE_NAMES[color]);
+      button.style.setProperty("--c", MARBLE_COLORS[color]);
+      button.setAttribute("aria-pressed", selected.has(color));
+      button.onclick = () => {
+        if (selected.has(color)) selected.delete(color); else selected.add(color);
+        reset();
+      };
+      eventBox.append(button);
+    }
+  }
+
+  function change(color, delta) {
+    const next = counts[color] + delta;
+    if (next < 0 || next > 8) return;
+    counts[color] = next;
+    reset();
+  }
+
+  function renderJar() {
+    jar.replaceChildren();
+    marbles().forEach(color => {
+      const marble = make("div", "marble" + (selected.has(color) ? " glow" : " dim"));
+      marble.style.setProperty("--c", MARBLE_COLORS[color]);
+      marble.dataset.color = color;
+      jar.append(marble);
+    });
+    const all = marbles().length;
+    const favorable = marbles().filter(color => selected.has(color)).length;
+    $("#prob-formula").innerHTML = all
+      ? `P(kedvező) = <b>${favorable}</b> / <b>${all}</b> = ${formatNumber(favorable / all)}`
+      : "Tegyél golyókat az urnába!";
+    const p = all ? favorable / all : 0;
+    $("#prob-p").style.width = p * 100 + "%";
+    $("#prob-q").style.width = (all ? 1 - p : 0) * 100 + "%";
+    $("#prob-p-val").textContent = formatNumber(p);
+    $("#prob-q-val").textContent = formatNumber(all ? 1 - p : 0);
+  }
+
+  function draw(animate) {
+    const all = marbles();
+    if (!all.length) return;
+    const index = Math.floor(Math.random() * all.length);
+    total++;
+    if (selected.has(all[index])) hits++;
+    history.push(hits / total);
+    if (animate) {
+      const marble = jar.children[index];
+      marble.classList.add("flash");
+      setTimeout(() => marble.classList.remove("flash"), 220);
+    }
+  }
+
+  function run(count) {
+    clearInterval(timer);
+    let left = count;
+    const perTick = count > 20 ? Math.ceil(count / 60) : 1;
+    timer = setInterval(() => {
+      for (let i = 0; i < perTick && left > 0; i++, left--) draw(perTick === 1);
+      renderChart();
+      if (left <= 0) clearInterval(timer);
+    }, count > 20 ? 25 : 350);
+  }
+
+  function renderChart() {
+    $("#prob-stats").textContent = total
+      ? `${total} húzás, ebből ${hits} kedvező → ${formatNumber(hits / total)} (elmélet: ${formatNumber(theory())})`
+      : "";
+    const context = chart.getContext("2d");
+    const style = getComputedStyle(document.body);
+    const { width, height } = chart, pad = 28;
+    context.clearRect(0, 0, width, height);
+    context.font = "12px system-ui";
+    context.strokeStyle = style.getPropertyValue("--line");
+    context.fillStyle = style.getPropertyValue("--muted");
+    for (const tick of [0, 0.5, 1]) {
+      const y = height - pad - tick * (height - 2 * pad);
+      context.beginPath(); context.moveTo(pad + 10, y); context.lineTo(width - 8, y); context.stroke();
+      context.fillText(String(tick).replace(".", ","), 2, y + 4);
+    }
+    const yOf = value => height - pad - value * (height - 2 * pad);
+    context.setLineDash([6, 5]);
+    context.strokeStyle = style.getPropertyValue("--ai");
+    context.beginPath(); context.moveTo(pad + 10, yOf(theory())); context.lineTo(width - 8, yOf(theory())); context.stroke();
+    context.setLineDash([]);
+    if (history.length) {
+      const span = Math.max(30, history.length);
+      context.strokeStyle = style.getPropertyValue("--accent");
+      context.lineWidth = 2.5;
+      context.beginPath();
+      history.forEach((value, i) => {
+        const x = pad + 10 + (i / (span - 1)) * (width - pad - 18);
+        if (i === 0) context.moveTo(x, yOf(value)); else context.lineTo(x, yOf(value));
+      });
+      context.stroke();
+      context.lineWidth = 1;
+    }
+    context.fillStyle = style.getPropertyValue("--muted");
+    context.fillText("húzások száma →", width - 110, height - 6);
+  }
+
+  function reset() {
+    clearInterval(timer);
+    total = 0; hits = 0; history = [];
+    renderControls(); renderJar(); renderChart();
+  }
+
+  document.querySelectorAll("[data-n]").forEach(button => button.onclick = () => run(Number(button.dataset.n)));
+  $("#prob-reset").onclick = reset;
+  $("#prob-none").onclick = () => { selected.clear(); reset(); };
+  $("#prob-all").onclick = () => { Object.keys(counts).forEach(color => selected.add(color)); reset(); };
+  return { start: reset, stop: () => clearInterval(timer) };
+})();
+
+/* ---------- 2. Permutations ---------- */
+const permutations = (() => {
+  let n = 3, all = [], index = 0, timer = null, playing = false;
+  const stage = $("#perm-stage"), playButton = $("#perm-play");
+  const STEP = 64;
+
+  let chips = [], shown = -1;
+
+  // all orders in systematic (lexicographic) order: grouped by first element, then by the second, ...
+  function lexicographic(size) {
+    const result = [];
+    const extend = (prefix, rest) => {
+      if (!rest.length) { result.push(prefix); return; }
+      rest.forEach((item, i) => extend([...prefix, item], [...rest.slice(0, i), ...rest.slice(i + 1)]));
+    };
+    extend([], [...Array(size).keys()]);
+    return result;
+  }
+
+  const SUFFIX = { A: "val", B: "vel", C: "vel", D: "vel", E: "vel", F: "fel", G: "vel" };
+
+  // nested tree: "A-val kezdődik" → "azon belül B-vel kezdődik" → ... down to the last two elements
+  function buildList() {
+    const box = $("#perm-list");
+    box.replaceChildren();
+    chips = [];
+    const orderIndex = new Map(all.map((order, i) => [order.join(""), i]));
+
+    function permute(items) {
+      return items.length <= 1 ? [items] : items.flatMap((item, i) => permute([...items.slice(0, i), ...items.slice(i + 1)]).map(rest => [item, ...rest]));
+    }
+
+    function group(prefix, remaining) {
+      const last = prefix[prefix.length - 1], letterOfLast = LETTERS[last];
+      const element = make("div", "perm-group" + (prefix.length > 1 ? " nested" : ""));
+      element.style.setProperty("--c", COLORS[last]);
+      const count = factorial(remaining.length);
+      const head = prefix.length === 1
+        ? `${letterOfLast}-${SUFFIX[letterOfLast]} kezdődik`
+        : `azon belül ${letterOfLast}-${SUFFIX[letterOfLast]} kezdődik (${prefix.map(token => LETTERS[token]).join("")}…)`;
+      element.append(make("h4", "", `${head}: ${count === 1 ? "1 sorrend" : `${count} sorrend`}`));
+      if (remaining.length <= 2) {
+        const row = make("div", "perm-sub");
+        permute(remaining).forEach(rest => {
+          const order = orderIndex.get([...prefix, ...rest].join(""));
+          const chip = make("button", "perm-chip", [...prefix, ...rest].map(token => LETTERS[token]).join(""));
+          chip.onclick = () => { setPlaying(false); index = order; place(); };
+          chips[order] = chip;
+          row.append(chip);
+        });
+        element.append(row);
+      } else {
+        remaining.forEach((next, i) => element.append(group([...prefix, next], [...remaining.slice(0, i), ...remaining.slice(i + 1)])));
+      }
+      return element;
+    }
+
+    const tokens = [...Array(n).keys()];
+    tokens.forEach((first, i) => box.append(group([first], [...tokens.slice(0, i), ...tokens.slice(i + 1)])));
+    shown = -1;
+  }
+  function place() {
+    const arrangement = all[index];
+    arrangement.forEach((token, position) => { stage.children[token].style.left = position * STEP + "px"; });
+    $("#perm-counter").textContent = `${index + 1}. sorrend / ${all.length}`;
+    if (chips[shown]) chips[shown].classList.remove("current");
+    chips[index].classList.add("current", "seen");
+    shown = index;
+  }
+
+  function buildSlots() {
+    const box = $("#perm-slots");
+    box.replaceChildren();
+    for (let i = 0; i < n; i++) {
+      if (i > 0) box.append(Object.assign(make("span", "times", "·"), { style: `animation-delay:${i * 0.35 + 0.15}s` }));
+      const slot = make("div", "slotbox", String(n - i));
+      slot.style.animationDelay = i * 0.35 + "s";
+      box.append(slot);
+    }
+    const product = Array.from({ length: n }, (_, i) => n - i).join(" · ");
+    $("#perm-formula").innerHTML = `${n}! = ${product} = <b>${factorial(n)}</b>`;
+  }
+
+  function buildTable() {
+    const rows = Array.from({ length: 8 }, (_, i) => `<tr><td>${i}!</td><td>${factorial(i).toLocaleString("hu-HU")}</td></tr>`).join("");
+    $("#perm-table").innerHTML = `<table><tr><th>n!</th><th>érték</th></tr>${rows}</table>`;
+  }
+
+  function setPlaying(value) {
+    playing = value;
+    clearInterval(timer);
+    playButton.textContent = playing ? "Szünet" : "Lejátszás";
+    if (playing) timer = setInterval(next, 1300 - Number($("#perm-speed").value) * 110);
+  }
+
+  function next() { index = (index + 1) % all.length; place(); }
+
+  function rebuild() {
+    setPlaying(false);
+    all = lexicographic(n); index = 0;
+    stage.replaceChildren();
+    stage.style.width = n * STEP - 8 + "px";
+    for (let i = 0; i < n; i++) {
+      const token = make("div", "token", LETTERS[i]);
+      token.style.setProperty("--c", COLORS[i]);
+      token.style.left = i * STEP + "px";
+      stage.append(token);
+    }
+    buildSlots(); buildList(); place();
+  }
+
+  const updateN = bindRange($("#perm-n"), $("#perm-n-label"), value => { n = value; rebuild(); });
+  playButton.onclick = () => setPlaying(!playing);
+  $("#perm-step").onclick = () => { setPlaying(false); next(); };
+  $("#perm-speed").oninput = () => { if (playing) setPlaying(true); };
+  buildTable();
+  return { start: () => { updateN(); setPlaying(true); }, stop: () => setPlaying(false) };
+})();
+
+/* ---------- 3. Multiplication principle and case split ---------- */
+const multiplication = (() => {
+  const timers = [];
+  const clearTimers = () => { timers.splice(0).forEach(clearTimeout); };
+  const svg = $("#tree-svg"), NS = "http://www.w3.org/2000/svg";
+  const stageNames = ["Póló", "Nadrág", "Cipő"];
+  const stageLabels = [["1", "2", "3"], ["a", "b", "c"], ["x", "y"]];
+  const values = [2, 2, 2];
+
+  function svgElement(tag, attributes) {
+    const element = document.createElementNS(NS, tag);
+    for (const [key, value] of Object.entries(attributes)) element.setAttribute(key, value);
+    return element;
+  }
+
+  function buildTree() {
+    clearTimers();
+    svg.replaceChildren();
+    const [a, b, c] = values, leafCount = a * b * c, rowHeight = 26;
+    const height = leafCount * rowHeight + 50, xs = [40, 190, 340, 490];
+    svg.setAttribute("viewBox", `0 0 600 ${height}`);
+    let leafIndex = 0, leavesShown = 0;
+    const counter = () => { $("#tree-formula").innerHTML = `${a} · ${b} · ${c} = <b>${a * b * c}</b> összeállítás &nbsp;·&nbsp; eddig a fán: <b>${leavesShown}</b>`; };
+    counter();
+    stageNames.forEach((name, level) => {
+      const header = svgElement("text", { x: xs[level + 1] - 14, y: 16 });
+      header.textContent = name;
+      svg.append(header);
+    });
+
+    function layout(level) {
+      if (level === 3) return { y: 36 + leafIndex++ * rowHeight, kids: [] };
+      const kids = Array.from({ length: values[level] }, (_, j) => ({ label: stageLabels[level][j], ...layout(level + 1) }));
+      return { y: kids.reduce((sum, kid) => sum + kid.y, 0) / kids.length, kids };
+    }
+    leafIndex = 0;
+    const root = layout(0);
+    root.y = root.kids.reduce((sum, kid) => sum + kid.y, 0) / root.kids.length;
+
+    let order = 0;
+    function drawNode(node, level, parent) {
+      const x = xs[level], color = COLORS[level - 1] ?? "var(--muted)";
+      const time = level * 0.45 + order++ * 0.02;
+      if (parent) {
+        const edge = svgElement("path", { d: `M${parent.x},${parent.y} C${(parent.x + x) / 2},${parent.y} ${(parent.x + x) / 2},${node.y} ${x},${node.y}`, pathLength: 1, class: "edge" });
+        edge.style.animationDelay = time + "s";
+        svg.append(edge);
+      }
+      const group = svgElement("g", { class: "node" });
+      group.style.animationDelay = time + 0.25 + "s";
+      const circle = svgElement("circle", { cx: x, cy: node.y, r: level === 0 ? 8 : 11, fill: level === 0 ? "var(--muted)" : color });
+      group.append(circle);
+      if (node.label) {
+        const text = svgElement("text", { x, y: node.y + 4, "text-anchor": "middle", style: "fill:#fff;font-weight:700;font-size:11px" });
+        text.textContent = node.label;
+        group.append(text);
+      }
+      svg.append(group);
+      if (level === 3) {
+        timers.push(setTimeout(() => { leavesShown++; counter(); }, (time + 0.25) * 1000));
+      }
+      node.kids.forEach(kid => drawNode(kid, level + 1, { x, y: node.y }));
+    }
+    drawNode(root, 0, null);
+  }
+
+  function setupSliders() {
+    ["a", "b", "c"].forEach((key, i) => {
+      const input = $(`#tree-${key}`), label = $(`#tree-${key}-label`);
+      const update = () => { label.textContent = input.value; values[i] = Number(input.value); buildTree(); };
+      input.oninput = update;
+      label.textContent = input.value; values[i] = Number(input.value);
+    });
+    $("#tree-replay").onclick = buildTree;
+  }
+
+  /* case split */
+  const grid = $("#case-grid");
+  const digits = [0, 1, 2, 3, 4];
+  const cases = [
+    { last: 0, color: "var(--c1)", formula: "4 · 3 · 1", note: "Az első jegy bármelyik a maradék 4-ből, a középső a maradék 3-ból." },
+    { last: 2, color: "var(--c2)", formula: "3 · 3 · 1", note: "Az első jegy nem lehet 0 (és nem 2): 3 lehetőség; a középső már 3-féle lehet." },
+    { last: 4, color: "var(--c3)", formula: "3 · 3 · 1", note: "Ugyanaz, mint a 2-nél." },
+  ];
+  const enumerate = last => {
+    const numbers = [];
+    for (const first of digits) for (const middle of digits) {
+      if (first === 0 || first === last || middle === last || first === middle) continue;
+      numbers.push(`${first}${middle}${last}`);
+    }
+    return numbers;
+  };
+
+  async function playCases() {
+    const token = Symbol();
+    playCases.token = token;
+    grid.replaceChildren();
+    $("#case-total").textContent = "";
+    const columns = cases.map(item => {
+      const box = make("div", "case");
+      box.style.setProperty("--c", item.color);
+      box.append(make("h4", "", `Az utolsó jegy: ${item.last}`));
+      box.append(make("div", "muted", item.formula));
+      const count = make("div", "count", "0");
+      const numbers = make("div", "numbers");
+      box.append(count, numbers, make("div", "muted", item.note));
+      grid.append(box);
+      return { count, numbers, list: enumerate(item.last) };
+    });
+    const totals = [0, 0, 0];
+    for (let i = 0; i < 12; i++) {
+      if (playCases.token !== token) return;
+      columns.forEach((column, index) => {
+        if (i < column.list.length) {
+          column.numbers.append(make("span", "num", column.list[i]));
+          column.count.textContent = ++totals[index];
+        }
+      });
+      await delay(140);
+    }
+    if (playCases.token !== token) return;
+    $("#case-total").innerHTML = `${totals.join(" + ")} = <b>${totals.reduce((sum, x) => sum + x, 0)}</b> páros szám`;
+  }
+  $("#case-play").onclick = playCases;
+
+  setupSliders();
+  return { start: () => { buildTree(); playCases(); }, stop: () => { clearTimers(); playCases.token = null; } };
+})();
+
+/* ---------- 4. Combinations ---------- */
+const combinations = (() => {
+  let n = 5, k = 3;
+  const list = $("#comb-list"), orderingsBox = $("#comb-orderings");
+
+  const subsets = (size, take) => {
+    const result = [];
+    const recurse = (start, current) => {
+      if (current.length === take) { result.push(current.slice()); return; }
+      for (let i = start; i < size; i++) { current.push(i); recurse(i + 1, current); current.pop(); }
+    };
+    recurse(0, []);
+    return result;
+  };
+  const permute = items => items.length <= 1 ? [items] :
+    items.flatMap((item, i) => permute([...items.slice(0, i), ...items.slice(i + 1)]).map(rest => [item, ...rest]));
+  const chips = (indexes, size) => indexes.map(i => {
+    const chip = make("span", "chip", LETTERS[i]);
+    chip.style.background = COLORS[i];
+    if (size) { chip.style.minWidth = size; }
+    return chip;
+  });
+
+  function render() {
+    const ordered = factorial(n) / factorial(n - k);
+    const team = Array.from({ length: k }, (_, i) => i);
+    const teamName = `{${team.map(i => LETTERS[i]).join(", ")}}`;
+    $("#comb-formula").innerHTML = `${binomialHtml(n, k)} = ${fractionHtml(`${n}!`, `${k}! · ${n - k}!`)} = <b>${choose(n, k)}</b>`;
+    $("#comb-ordered").innerHTML = `Ha a sorrend is számít: ${Array.from({ length: k }, (_, i) => n - i).join(" · ")} = <b>${ordered}</b> kiválasztás.`;
+    $("#comb-team").textContent = teamName;
+
+    orderingsBox.replaceChildren();
+    const orders = permute(team);
+    const shown = orders.slice(0, 24);
+    shown.forEach((order, i) => {
+      const box = make("div", "ordering" + (i === 0 ? " first" : ""));
+      box.append(...chips(order));
+      orderingsBox.append(box);
+    });
+    if (orders.length > shown.length) orderingsBox.append(make("span", "muted", `… és még ${orders.length - shown.length} sorrend`));
+    $("#comb-merge-text").textContent = `Ebből a ${k}! = ${factorial(k)} sorrendből csak 1 valódi csapat lesz. Ezért osztunk ${k}!-sal: ${ordered} / ${factorial(k)} = ${choose(n, k)}.`;
+
+    list.replaceChildren();
+    subsets(n, k).forEach((subset, i) => {
+      const box = make("div", "combo");
+      box.style.animationDelay = i * 0.03 + "s";
+      box.append(...chips(subset));
+      list.append(box);
+    });
+  }
+
+  function merge(on) {
+    const boxes = [...orderingsBox.querySelectorAll(".ordering")];
+    const first = boxes[0]?.getBoundingClientRect();
+    boxes.forEach((box, i) => {
+      if (i === 0) { box.classList.toggle("done", on); return; }
+      const rect = box.getBoundingClientRect();
+      box.style.setProperty("--dx", first.left - rect.left + "px");
+      box.style.setProperty("--dy", first.top - rect.top + "px");
+      box.classList.toggle("merged", on);
+    });
+  }
+
+  const updateN = bindRange($("#comb-n"), $("#comb-n-label"), value => {
+    n = value;
+    const kInput = $("#comb-k");
+    kInput.max = n - 1;
+    if (Number(kInput.value) > n - 1) kInput.value = n - 1;
+    k = Number(kInput.value);
+    $("#comb-k-label").textContent = k;
+    render();
+  });
+  const updateK = bindRange($("#comb-k"), $("#comb-k-label"), value => { k = value; render(); });
+  $("#comb-merge").onclick = () => merge(true);
+  $("#comb-unmerge").onclick = () => merge(false);
+  return { start: () => { updateN(); updateK(); }, stop: () => {} };
+})();
+
+/* ---------- 5. Exclusive and independent events ---------- */
+const events = (() => {
+  const canvas = $("#ev-canvas"), context = canvas.getContext("2d");
+  let mode = "exclusive", a = 0.4, b = 0.3, running = true, frame = 0;
+  let counts = { total: 0, a: 0, b: 0, both: 0 };
+  const size = canvas.width;
+
+  const inA = (u, v) => u < a;
+  const inB = (u, v) => mode === "exclusive" ? u > 1 - b : v < b;
+
+  function drawRegions() {
+    const style = getComputedStyle(document.body);
+    context.clearRect(0, 0, size, size);
+    context.fillStyle = "rgba(11,132,214,.22)";
+    context.fillRect(0, 0, a * size, size);
+    context.fillStyle = "rgba(232,163,61,.24)";
+    if (mode === "exclusive") context.fillRect((1 - b) * size, 0, b * size, size);
+    else context.fillRect(0, (1 - b) * size, size, b * size);
+    context.strokeStyle = style.getPropertyValue("--muted");
+    context.strokeRect(0.5, 0.5, size - 1, size - 1);
+    context.fillStyle = style.getPropertyValue("--ink");
+    context.font = "bold 16px system-ui";
+    context.fillText("A", 8, 22);
+    context.fillText("B", mode === "exclusive" ? size - 20 : size - 20, mode === "exclusive" ? 22 : size - 8);
+  }
+
+  function addDot() {
+    const u = Math.random(), v = Math.random();
+    const isA = inA(u, v), isB = inB(u, v);
+    counts.total++; if (isA) counts.a++; if (isB) counts.b++; if (isA && isB) counts.both++;
+    context.fillStyle = isA && isB ? "#c6f06a" : isA ? "#0B84D6" : isB ? "#E8A33D" : "#5a6388";
+    context.beginPath(); context.arc(u * size, (1 - v) * size, 2.6, 0, Math.PI * 2); context.fill();
+  }
+
+  function renderTable() {
+    const pct = x => formatNumber(x * 100, 1) + " %";
+    const n = counts.total || 1;
+    const both = mode === "exclusive" ? 0 : a * b;
+    const rows = [
+      ["P(A)", a, counts.a / n],
+      ["P(B)", b, counts.b / n],
+      ["P(A ∩ B)", both, counts.both / n],
+      ["P(A ∪ B)", a + b - both, (counts.a + counts.b - counts.both) / n],
+    ];
+    $("#ev-table").innerHTML = `<tr><th></th><th>elmélet</th><th>kísérlet (${counts.total} pont)</th></tr>` +
+      rows.map(([name, theory, observed]) => `<tr><td>${name}</td><td>${pct(theory)}</td><td>${counts.total ? pct(observed) : "–"}</td></tr>`).join("");
+  }
+
+  function explain() {
+    $("#ev-explain").innerHTML = mode === "exclusive"
+      ? `A és B <b>nem fedik át</b> egymást: ha egy pont A-ban van, B-ben biztosan nincs. Nincs közös rész, ezért az unió valószínűsége <b>összeadás</b>: ${formatNumber(a)} + ${formatNumber(b)} = ${formatNumber(a + b)}.`
+      : `A egy függőleges, B egy vízszintes sáv. A metszetük a kis téglalap: területe (szélesség · magasság) = ${formatNumber(a)} · ${formatNumber(b)} = <b>${formatNumber(a * b)}</b>. Az A-ban lévő pontok között is épp P(B) a B-ben lévők aránya, ezért <b>függetlenek</b>. Az unióból a közös részt egyszer le kell vonni.`;
+  }
+
+  function reset() {
+    counts = { total: 0, a: 0, b: 0, both: 0 };
+    drawRegions(); explain(); renderTable();
+  }
+
+  function loop() {
+    if (running) {
+      for (let i = 0; i < 4 && counts.total < 6000; i++) addDot();
+      if (counts.total % 20 < 4) renderTable();
+    }
+    frame = requestAnimationFrame(loop);
+  }
+
+  function setMode(next) {
+    mode = next;
+    $("#ev-mode-excl").setAttribute("aria-pressed", next === "exclusive");
+    $("#ev-mode-indep").setAttribute("aria-pressed", next === "independent");
+    if (mode === "exclusive" && a + b > 1) { b = 1 - a; $("#ev-b").value = Math.round(b * 100); $("#ev-b-label").textContent = Math.round(b * 100) + " %"; }
+    reset();
+  }
+
+  const sliderA = bindRange($("#ev-a"), $("#ev-a-label"), value => {
+    a = value / 100;
+    if (mode === "exclusive" && a + b > 1) { b = 1 - a; $("#ev-b").value = Math.round(b * 100); $("#ev-b-label").textContent = Math.round(b * 100) + " %"; }
+    reset();
+  });
+  const sliderB = bindRange($("#ev-b"), $("#ev-b-label"), value => {
+    b = value / 100;
+    if (mode === "exclusive" && a + b > 1) { a = 1 - b; $("#ev-a").value = Math.round(a * 100); $("#ev-a-label").textContent = Math.round(a * 100) + " %"; }
+    reset();
+  });
+  const addPercent = () => { $("#ev-a-label").textContent = $("#ev-a").value + " %"; $("#ev-b-label").textContent = $("#ev-b").value + " %"; };
+  $("#ev-a").addEventListener("input", addPercent); $("#ev-b").addEventListener("input", addPercent);
+  $("#ev-mode-excl").onclick = () => setMode("exclusive");
+  $("#ev-mode-indep").onclick = () => setMode("independent");
+  $("#ev-play").onclick = () => { running = !running; $("#ev-play").textContent = running ? "Szünet" : "Folytatás"; };
+  $("#ev-reset").onclick = reset;
+  return {
+    start: () => { sliderA(); sliderB(); addPercent(); setMode(mode); cancelAnimationFrame(frame); loop(); },
+    stop: () => cancelAnimationFrame(frame),
+  };
+})();
+
+/* ---------- 6. Sampling with and without replacement ---------- */
+const sampling = (() => {
+  const counts = { red: 3, blue: 2 };
+  let withReplacement = true, available = [], drawn = [], busy = false;
+  const tally = { RR: 0, RB: 0, BR: 0, BB: 0 };
+  let tallyTotal = 0;
+  const jar = $("#sm-jar"), tray = $("#sm-tray");
+
+  const bag = () => [...Array(counts.red).fill("red"), ...Array(counts.blue).fill("blue")];
+  const code = colorName => colorName === "red" ? "R" : "B";
+  const total = () => counts.red + counts.blue;
+
+  function theoryOf(pattern, replacement) {
+    const r = counts.red, bl = counts.blue, all = r + bl;
+    const first = pattern[0] === "R" ? r : bl;
+    const secondPool = pattern[1] === "R" ? r : bl;
+    if (replacement) return { num: first * secondPool, den: all * all };
+    const secondCount = pattern[0] === pattern[1] ? secondPool - 1 : secondPool;
+    return { num: first * secondCount, den: all * (all - 1) };
+  }
+
+  function renderJar() {
+    jar.replaceChildren();
+    bag().forEach((color, i) => {
+      const marble = make("div", "marble");
+      marble.style.setProperty("--c", MARBLE_COLORS[color]);
+      jar.append(marble);
+    });
+    available = bag().map((_, i) => i);
+    drawn = [];
+    tray.replaceChildren();
+    for (let i = 0; i < 2; i++) tray.append(make("div", "slot"));
+    $("#sm-red-label").textContent = counts.red;
+    $("#sm-blue-label").textContent = counts.blue;
+    $("#sm-draw").disabled = false;
+    updateNext();
+  }
+
+  function updateNext() {
+    const red = available.filter(i => bag()[i] === "red").length;
+    const blue = available.length - red;
+    const step = drawn.length === 2 ? "Kész" : `${drawn.length + 1}. húzás`;
+    $("#sm-next").innerHTML = drawn.length === 2
+      ? `Eredmény: <b>${drawn.map(c => MARBLE_NAMES[c]).join(", ")}</b>`
+      : `${step}: P(piros) = <b>${red}/${available.length}</b> = ${formatNumber(red / available.length)} &nbsp; P(kék) = <b>${blue}/${available.length}</b> = ${formatNumber(blue / available.length)}`;
+  }
+
+  async function drawOne() {
+    if (busy || drawn.length >= 2 || !available.length) return;
+    busy = true;
+    const index = pick(available), color = bag()[index], marble = jar.children[index];
+    marble.classList.add("lift");
+    await delay(450);
+    const slot = tray.children[drawn.length];
+    const copy = make("div", "marble");
+    copy.style.setProperty("--c", MARBLE_COLORS[color]);
+    slot.append(copy);
+    drawn.push(color);
+    if (withReplacement) {
+      marble.classList.remove("lift");
+    } else {
+      marble.classList.remove("lift"); marble.classList.add("gone");
+      available = available.filter(i => i !== index);
+    }
+    await delay(350);
+    if (drawn.length === 2) {
+      tally[code(drawn[0]) + code(drawn[1])]++; tallyTotal++;
+      $("#sm-draw").disabled = true;
+      renderTable();
+    }
+    updateNext();
+    busy = false;
+  }
+
+  function simulate(times) {
+    for (let t = 0; t < times; t++) {
+      const pool = bag();
+      const first = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
+      const second = withReplacement ? pick(bag()) : pick(pool);
+      tally[code(first) + code(second)]++; tallyTotal++;
+    }
+    renderTable();
+  }
+
+  function renderTable() {
+    const rows = [["RR", "piros, piros"], ["RB", "piros, kék"], ["BR", "kék, piros"], ["BB", "kék, kék"]];
+    const fractionText = replacement => ({ num, den }) => `${num}/${den} = ${formatNumber(num / den)}`;
+    let html = `<tr><th>Kihúzott</th><th>Visszatevéses</th><th>Visszatevés nélküli</th><th>Kísérlet</th></tr>`;
+    for (const [pattern, name] of rows) {
+      const first = pattern[0] === "R" ? "P" : "K";
+      const withT = theoryOf(pattern, true), withoutT = theoryOf(pattern, false);
+      const observed = tallyTotal ? formatNumber(tally[pattern] / tallyTotal * 100, 1) + " %" : "–";
+      html += `<tr><td>${name}</td>
+        <td class="${withReplacement ? "cur" : ""}">${fractionText(true)(withT)}</td>
+        <td class="${withReplacement ? "" : "cur"}">${fractionText(false)(withoutT)}</td>
+        <td>${observed}</td></tr>`;
+    }
+    $("#sm-table").innerHTML = html;
+    $("#sm-tally-info").textContent = tallyTotal ? `${tallyTotal} próba, ${withReplacement ? "visszatevéses" : "visszatevés nélküli"} módban` : "";
+
+    const bars = $("#sm-bars");
+    bars.replaceChildren();
+    for (const [pattern, name] of rows) {
+      const theoryValue = (() => { const { num, den } = theoryOf(pattern, withReplacement); return num / den; })();
+      const observedValue = tallyTotal ? tally[pattern] / tallyTotal : 0;
+      const row = make("div", "bar");
+      row.append(make("span", "", name));
+      row.lastChild.style.width = "90px";
+      const track = make("div", "track"), fill = make("div", "fill"), marker = make("div", "theory");
+      fill.style.width = observedValue * 100 + "%";
+      marker.style.left = `calc(${theoryValue * 100}% - 1px)`;
+      track.append(fill, marker);
+      row.append(track);
+      bars.append(row);
+    }
+  }
+
+  function setMode(value) {
+    withReplacement = value;
+    $("#sm-mode-with").setAttribute("aria-pressed", value);
+    $("#sm-mode-without").setAttribute("aria-pressed", !value);
+    tallyTotal = 0; Object.keys(tally).forEach(key => tally[key] = 0);
+    renderJar(); renderTable();
+  }
+
+  document.querySelectorAll(".stepper button[data-color]").forEach(button => {
+    button.onclick = () => {
+      const color = button.dataset.color, next = counts[color] + Number(button.dataset.d);
+      if (next < 1 || next > 6) return;
+      counts[color] = next;
+      setMode(withReplacement);
+    };
+  });
+  $("#sm-mode-with").onclick = () => setMode(true);
+  $("#sm-mode-without").onclick = () => setMode(false);
+  $("#sm-draw").onclick = drawOne;
+  $("#sm-again").onclick = () => { if (!busy) renderJar(); };
+  $("#sm-sim").onclick = () => simulate(1000);
+  return { start: () => setMode(withReplacement), stop: () => {} };
+})();
+
+/* ---------- shared vertical bars ---------- */
+// vertical dashed marker at a numeric position over consecutive-integer columns (created once, then slides)
+function placeMarker(container, className, value, firstValue, text) {
+  const cols = container.querySelectorAll(".vcol");
+  if (!cols.length) return;
+  const position = Math.min(Math.max(value - firstValue, 0), cols.length - 1), index = Math.floor(position);
+  const centerOf = column => column.offsetLeft + column.offsetWidth / 2;
+  const next = cols[Math.min(index + 1, cols.length - 1)];
+  const x = centerOf(cols[index]) + (position - index) * (centerOf(next) - centerOf(cols[index]));
+  let marker = container.querySelector(`[data-marker="${className}"]`);
+  if (!marker) {
+    marker = make("div", className);
+    marker.dataset.marker = className;
+    marker.append(make("span"));
+    marker.style.left = centerOf(cols[0]) + "px";
+    container.append(marker);
+    marker.getBoundingClientRect();
+  }
+  marker.firstChild.textContent = text;
+  requestAnimationFrame(() => { marker.style.left = x + "px"; });
+}
+function removeMarkers(container) { container.querySelectorAll(".emarker").forEach(marker => marker.remove()); }
+
+function renderColumns(container, columns, maxValue) {
+  container.replaceChildren();
+  const bars = columns.map(column => {
+    const box = make("div", "vcol" + (column.on ? " on" : ""));
+    const wrap = make("div", "vbar-wrap");
+    const bar = make("div", "vbar"), mark = make("div", "vmark");
+    wrap.append(bar, mark);
+    box.append(wrap, make("span", "vval", column.label), make("span", "", column.sub ?? ""));
+    container.append(box);
+    return { bar, mark, column };
+  });
+  setTimeout(() => bars.forEach(({ bar, column }) => { bar.style.height = column.value / maxValue * 100 + "%"; }), 40);
+  return bars;
+}
+
+/* ---------- ESE-27 Hypergeometric: k good among n drawn from N ---------- */
+const hypergeometric = (() => {
+  let total = 10, good = 4, draw = 3, wanted = 1, replacement = false, tally = [], samples = 0, bars = [], maxValue = 1, busy = false;
+  const jar = $("#hg-jar");
+  const binom = (n, k) => { if (k < 0 || k > n) return 0; let result = 1; for (let i = 1; i <= k; i++) result = result * (n - k + i) / i; return Math.round(result); };
+  const pmf = x => replacement
+    ? binom(draw, x) * (good / total) ** x * (1 - good / total) ** (draw - x)
+    : binom(good, x) * binom(total - good, draw - x) / binom(total, draw);
+
+  function syncLimits() {
+    const goodInput = $("#hg-good"), drawInput = $("#hg-draw"), kInput = $("#hg-k");
+    goodInput.max = total; if (Number(goodInput.value) > total) goodInput.value = total; good = Number(goodInput.value);
+    drawInput.max = replacement ? 8 : Math.min(8, total); if (Number(drawInput.value) > Number(drawInput.max)) drawInput.value = drawInput.max; draw = Number(drawInput.value);
+    kInput.max = draw; if (Number(kInput.value) > draw) kInput.value = draw; wanted = Number(kInput.value);
+    $("#hg-good-label").textContent = good; $("#hg-draw-label").textContent = draw; $("#hg-k-label").textContent = wanted;
+  }
+
+  function renderJar() {
+    jar.replaceChildren();
+    for (let i = 0; i < total; i++) {
+      const marble = make("div", "marble" + (i < good ? "" : " dim"));
+      marble.style.setProperty("--c", i < good ? MARBLE_COLORS.red : MARBLE_COLORS.blue);
+      marble.style.animation = `pop .4s ${i * 30}ms backwards`;
+      jar.append(marble);
+    }
+  }
+
+  function renderBars() {
+    const values = Array.from({ length: draw + 1 }, (_, x) => pmf(x));
+    maxValue = Math.max(...values) * 1.15 || 1;
+    bars = renderColumns($("#hg-bars"), values.map((value, x) => ({
+      label: String(x), sub: formatNumber(value * 100, 1) + " %", value, on: x === wanted,
+    })), maxValue);
+    showMarks();
+    renderMean();
+  }
+
+  function renderMean() {
+    const expected = draw * good / total, color = name => `<span style="color:${VAR_COLORS[name]};font-weight:700">`;
+    $("#hg-mean").innerHTML = `E(X) = ${color("n")}n</span> · ${fractionHtml(`${color("K")}K</span>`, `${color("N")}N</span>`)} = ${color("n")}${draw}</span> · ${fractionHtml(`${color("K")}${good}</span>`, `${color("N")}${total}</span>`)} = <b>${formatNumber(expected)}</b>`;
+    $("#hg-mean-note").textContent = `Minden kihúzott golyó ${good}/${total} eséllyel jó, és ${draw} golyót húzunk, ezért átlagosan ${draw} · ${good}/${total} = ${formatNumber(expected)} jó golyóra számíthatunk. Ez visszatevéssel és anélkül is igaz. A mintaátlag a narancs vonal, a várható érték a zöld szaggatott.`;
+    placeMarker($("#hg-bars"), "emarker", expected, 0, `E(X) = ${formatNumber(expected)}`);
+    showSampleMean();
+  }
+
+  function showSampleMean() {
+    if (!samples) { $("#hg-bars").querySelector('[data-marker="emarker sample"]')?.remove(); return; }
+    const mean = tally.reduce((sum, count, x) => sum + x * count, 0) / samples;
+    placeMarker($("#hg-bars"), "emarker sample", mean, 0, `átlag ${formatNumber(mean)}`);
+  }
+
+  function showMarks() {
+    bars.forEach(({ mark }, x) => {
+      mark.style.display = samples ? "block" : "none";
+      mark.style.bottom = `calc(${(tally[x] ?? 0) / Math.max(samples, 1) / maxValue * 100}% - 1px)`;
+    });
+    if (document.querySelector("#hg-mean").textContent) showSampleMean();
+  }
+
+  const VAR_COLORS = { N: "var(--c1)", K: "var(--c0)", n: "var(--c3)", k: "var(--accent)" };
+  const VAR_LABELS = { N: "#hg-total-label", K: "#hg-good-label", n: "#hg-draw-label", k: "#hg-k-label" };
+  const letter = name => `<span class="var" style="color:${VAR_COLORS[name]}">${name}</span>`;
+  const slot = (text, vars) => `<span class="slot" data-vars="${vars}"${vars.length === 1 ? ` style="color:${VAR_COLORS[vars]}"` : ""}>${text}</span>`;
+  let previous = null;
+
+  function flyNumbers(changed) {
+    document.querySelectorAll(".flyer").forEach(element => element.remove());
+    const later = $("#hg-formula .later");
+    const slots = [...$("#hg-formula").querySelectorAll(".slot")].filter(element => [...element.dataset.vars].some(name => changed.has(name)));
+    let last = 0;
+    slots.forEach((target, index) => {
+      const name = [...target.dataset.vars].find(char => changed.has(char));
+      const from = $(VAR_LABELS[name]).getBoundingClientRect(), to = target.getBoundingClientRect();
+      const flyer = make("span", "flyer", target.textContent);
+      flyer.style.left = from.left + "px"; flyer.style.top = from.top + "px";
+      flyer.style.color = target.dataset.vars.length === 1 ? VAR_COLORS[name] : "var(--ink)";
+      document.body.append(flyer);
+      target.style.opacity = "0";
+      const delayMs = index * 90;
+      last = Math.max(last, delayMs + 750);
+      flyer.animate([
+        { transform: "translate(0, 0) scale(1.5)", opacity: 1 },
+        { transform: `translate(${to.left - from.left}px, ${to.top - from.top}px) scale(1)`, opacity: 1 },
+      ], { duration: 750, delay: delayMs, easing: "cubic-bezier(.3,.7,.2,1)", fill: "both" }).onfinish = () => {
+        flyer.remove();
+        if (target.isConnected) { target.style.opacity = "1"; target.classList.add("landed"); }
+      };
+    });
+    if (later && slots.length) {
+      later.style.opacity = "0";
+      setTimeout(() => { if (later.isConnected) later.style.opacity = "1"; }, last);
+    }
+  }
+
+  function renderFormula() {
+    const value = pmf(wanted), state = { N: total, K: good, n: draw, k: wanted };
+    const changed = new Set(!previous || previous.replacement !== replacement ? Object.keys(state) : Object.keys(state).filter(name => state[name] !== previous[name]));
+    previous = { ...state, replacement };
+    const heading = `P(X = ${slot(wanted, "k")}) = `;
+    if (replacement) {
+      $("#hg-generic").innerHTML = `P(X = ${letter("k")}) = ${binomialHtml(letter("n"), letter("k"))} · ${fractionHtml(letter("K"), letter("N"))}<sup>${letter("k")}</sup> · ${fractionHtml(`${letter("N")}−${letter("K")}`, letter("N"))}<sup>${letter("n")}−${letter("k")}</sup>`;
+      $("#hg-formula").innerHTML = `${heading}${binomialHtml(slot(draw, "n"), slot(wanted, "k"))} · ${fractionHtml(slot(good, "K"), slot(total, "N"))}<sup>${slot(wanted, "k")}</sup> · ${fractionHtml(`${slot(total, "N")}−${slot(good, "K")}`, slot(total, "N"))}<sup>${slot(draw, "n")}−${slot(wanted, "k")}</sup><span class="later"> = ${binomialHtml(draw, wanted)} · ${fractionHtml(good, total)}<sup>${wanted}</sup> · ${fractionHtml(total - good, total)}<sup>${draw - wanted}</sup> = <b>${formatNumber(value, 4)}</b></span>`;
+      $("#hg-explain").textContent = `Visszatevéssel minden húzásnál ugyanaz az esély (${good}/${total}) a jó golyóra. A ${wanted} jó golyó helyét ${binom(draw, wanted)}-féleképp választhatjuk ki a ${draw} húzás közül, a valószínűségeket összeszorozzuk.`;
+    } else {
+      const favorableGood = binom(good, wanted), favorableBad = binom(total - good, draw - wanted), all = binom(total, draw);
+      $("#hg-generic").innerHTML = `P(X = ${letter("k")}) = ${fractionHtml(`${binomialHtml(letter("K"), letter("k"))} · ${binomialHtml(`${letter("N")}−${letter("K")}`, `${letter("n")}−${letter("k")}`)}`, binomialHtml(letter("N"), letter("n")))}`;
+      $("#hg-formula").innerHTML = `${heading}${fractionHtml(`${binomialHtml(slot(good, "K"), slot(wanted, "k"))} · ${binomialHtml(`${slot(total, "N")}−${slot(good, "K")}`, `${slot(draw, "n")}−${slot(wanted, "k")}`)}`, binomialHtml(slot(total, "N"), slot(draw, "n")))}<span class="later"> = ${fractionHtml(`${binomialHtml(good, wanted)} · ${binomialHtml(total - good, draw - wanted)}`, binomialHtml(total, draw))} = ${fractionHtml(`${favorableGood} · ${favorableBad}`, all)} = <b>${formatNumber(value, 4)}</b></span>`;
+      $("#hg-explain").textContent = `Kedvező esetek: a K = ${good} jó golyóból ${wanted}-t választunk (${favorableGood}-féleképp), és a ${total - good} rossz golyóból a maradék ${draw - wanted}-t (${favorableBad}-féleképp): ezeket szorozzuk. Összes eset: a ${total} golyóból ${draw}-t választunk (${all}-féleképp). A sorrend nem számít, ezért kombinációkat használunk.`;
+    }
+    flyNumbers(changed);
+  }
+  function renderAll() { syncLimits(); renderJar(); renderFormula(); renderBars(); }
+  function resetSamples() { tally = Array(9).fill(0); samples = 0; $("#hg-result").textContent = ""; }
+
+  function drawIndexes() {
+    if (replacement) return Array.from({ length: draw }, () => Math.floor(Math.random() * total));
+    const indexes = [...Array(total).keys()];
+    for (let i = indexes.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [indexes[i], indexes[j]] = [indexes[j], indexes[i]]; }
+    return indexes.slice(0, draw);
+  }
+
+  async function drawOnce() {
+    if (busy) return;
+    busy = true;
+    const indexes = drawIndexes(), goods = indexes.filter(i => i < good).length;
+    indexes.forEach(i => jar.children[i]?.classList.add("lift"));
+    tally[goods]++; samples++;
+    $("#hg-result").textContent = `Kihúztunk ${draw} golyót, ebből ${goods} jó${goods === wanted ? " – ez a keresett eset!" : "."}`;
+    showMarks();
+    await delay(700);
+    indexes.forEach(i => jar.children[i]?.classList.remove("lift"));
+    busy = false;
+  }
+
+  function drawMany() {
+    for (let t = 0; t < 1000; t++) { const goods = drawIndexes().filter(i => i < good).length; tally[goods]++; samples++; }
+    $("#hg-result").textContent = `${samples} húzás, ebből ${tally[wanted]} alkalommal pontosan ${wanted} jó (${formatNumber(tally[wanted] / samples * 100, 1)} %).`;
+    showMarks();
+  }
+
+  function setMode(value) {
+    replacement = value;
+    $("#hg-mode-without").setAttribute("aria-pressed", !value);
+    $("#hg-mode-with").setAttribute("aria-pressed", value);
+    resetSamples(); renderAll();
+  }
+
+  bindRange($("#hg-total"), $("#hg-total-label"), value => { total = value; resetSamples(); renderAll(); })();
+  for (const id of ["hg-good", "hg-draw"]) $(`#${id}`).addEventListener("input", () => { resetSamples(); renderAll(); });
+  $("#hg-k").addEventListener("input", () => { wanted = Number($("#hg-k").value); $("#hg-k-label").textContent = wanted; renderFormula(); bars.forEach(({ column }, x) => { column.on = x === wanted; }); [...$("#hg-bars").children].forEach((box, x) => box.classList.toggle("on", x === wanted)); });
+  $("#hg-mode-without").onclick = () => setMode(false);
+  $("#hg-mode-with").onclick = () => setMode(true);
+  $("#hg-draw-once").onclick = drawOnce;
+  $("#hg-draw-many").onclick = drawMany;
+  $("#hg-reset").onclick = () => { resetSamples(); showMarks(); };
+  return { start: () => { resetSamples(); renderAll(); }, stop: () => {} };
+})();
+
+/* ---------- ESE-08 Sampling kinds ---------- */
+const samplingKinds = (() => {
+  let n = 4, k = 2;
+  const questions = [
+    { text: "Egy urnából egymás után kihúzunk 3 golyót, és minden húzás után visszatesszük.", answer: "with", why: "A golyó a húzás után visszakerül, ezért újra kihúzható." },
+    { text: "Egy 32 lapos kártyacsomagból kihúzunk 5 lapot.", answer: "without", why: "Egy lap csak egyszer szerepelhet a kezünkben: a kihúzott lap nem kerül vissza." },
+    { text: "Háromszor dobunk egy dobókockával.", answer: "with", why: "Minden dobásnál ugyanaz a hat lehetőség van, bármelyik szám ismétlődhet." },
+    { text: "Egy 25 fős osztályból kiválasztunk 3 főt a diákbizottságba.", answer: "without", why: "Ugyanaz a diák nem lehet kétszer a bizottság tagja." },
+    { text: "Négyjegyű PIN-kódot készítünk a 0–9 számjegyekből.", answer: "with", why: "A számjegyek ismétlődhetnek (pl. 1221), tehát minden helyre újra mind a 10 számjegy választható." },
+    { text: "A lottón 90 számból 5-öt húznak ki.", answer: "without", why: "Egy kihúzott szám nem kerül vissza, nem húzhatják ki kétszer." },
+    { text: "Egy zsákból húzunk egy cetlit, feljegyezzük, majd visszadobjuk, és újra húzunk.", answer: "with", why: "A szöveg kimondja, hogy a cetli visszakerül." },
+    { text: "10 versenyző között kisorsoljuk az 1., 2. és 3. díjat, és egy versenyző csak egy díjat kaphat.", answer: "without", why: "Aki már kapott díjat, kiesik a további sorsolásból." },
+  ];
+  let order = [], current = 0, correct = 0, asked = 0, answered = false;
+
+  const shuffle = list => { const copy = list.slice(); for (let i = copy.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [copy[i], copy[j]] = [copy[j], copy[i]]; } return copy; };
+
+  function sequences(replacement) {
+    const result = [];
+    const recurse = current => {
+      if (current.length === k) { result.push(current.map(i => LETTERS[i]).join("")); return; }
+      for (let i = 0; i < n; i++) if (replacement || !current.includes(i)) recurse([...current, i]);
+    };
+    recurse([]);
+    return result;
+  }
+
+  function renderKind(prefix, replacement) {
+    const slots = $(`#kd-${prefix}-slots`);
+    slots.replaceChildren();
+    const numbers = Array.from({ length: k }, (_, i) => replacement ? n : n - i);
+    numbers.forEach((value, i) => {
+      if (i > 0) slots.append(Object.assign(make("span", "times", "·"), { style: `animation-delay:${i * 0.3 + 0.1}s` }));
+      const box = make("div", "slotbox", String(value));
+      box.style.animationDelay = i * 0.3 + "s";
+      slots.append(box);
+    });
+    const list = sequences(replacement);
+    $(`#kd-${prefix}-formula`).innerHTML = `${numbers.join(" · ")} = <b>${list.length}</b>`;
+    const box = $(`#kd-${prefix}-list`);
+    box.replaceChildren();
+    list.forEach((text, i) => {
+      const item = make("span", "num", text);
+      item.style.setProperty("--c", replacement ? "var(--c1)" : "var(--c5)");
+      item.style.animationDelay = Math.min(i * 12, 900) + "ms";
+      box.append(item);
+    });
+  }
+
+  function renderSamples() { renderKind("with", true); renderKind("without", false); }
+
+  function nextQuestion() {
+    if (current >= order.length) { order = shuffle(questions); current = 0; }
+    answered = false;
+    $("#kd-question").textContent = order[current].text;
+    $("#kd-feedback").hidden = true;
+    $("#kd-next").disabled = true;
+    document.querySelectorAll("#kd-answer-with, #kd-answer-without").forEach(button => { button.disabled = false; });
+  }
+
+  function answer(choice) {
+    if (answered) return;
+    answered = true;
+    const item = order[current], right = choice === item.answer;
+    asked++; if (right) correct++;
+    const label = item.answer === "with" ? "visszatevéses" : "visszatevés nélküli";
+    const feedback = $("#kd-feedback");
+    feedback.hidden = false;
+    feedback.innerHTML = `<b>${right ? "Helyes!" : "Nem egészen."}</b> Ez <b>${label}</b> mintavétel. ${item.why}`;
+    $("#kd-score").textContent = `${correct} / ${asked} helyes`;
+    $("#kd-next").disabled = false;
+    document.querySelectorAll("#kd-answer-with, #kd-answer-without").forEach(button => { button.disabled = true; });
+    current++;
+  }
+
+  bindRange($("#kd-n"), $("#kd-n-label"), value => { n = value; renderSamples(); })();
+  bindRange($("#kd-k"), $("#kd-k-label"), value => { k = value; renderSamples(); })();
+  $("#kd-answer-with").onclick = () => answer("with");
+  $("#kd-answer-without").onclick = () => answer("without");
+  $("#kd-next").onclick = nextQuestion;
+  return { start: () => { renderSamples(); order = shuffle(questions); current = 0; correct = 0; asked = 0; $("#kd-score").textContent = ""; nextQuestion(); }, stop: () => {} };
+})();
+
+/* ---------- ESE-25 Classical model ---------- */
+const laplace = (() => {
+  let kind = "sum", s = 7;
+  const grid = $("#lp-grid");
+  for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) grid.append(make("div", "dice-cell", `${a}·${b}`));
+  const test = (a, b) => kind === "sum" ? a + b === s : kind === "atleast" ? a + b >= s : a === b;
+
+  function renderDice() {
+    let favorable = 0;
+    [...grid.children].forEach((cell, index) => {
+      const a = Math.floor(index / 6) + 1, b = (index % 6) + 1, hit = test(a, b);
+      if (hit) favorable++;
+      cell.style.transitionDelay = (index % 12) * 15 + "ms";
+      cell.classList.toggle("fav", hit);
+    });
+    $("#lp-formula").innerHTML = `P = <b>${favorable}</b> / <b>36</b> = ${formatNumber(favorable / 36)}`;
+    const counts = Array.from({ length: 11 }, (_, i) => {
+      let count = 0;
+      for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) if (a + b === i + 2) count++;
+      return count;
+    });
+    renderColumns($("#lp-sums"), counts.map((count, i) => ({
+      label: String(i + 2), sub: `${count}/36`, value: count, on: kind === "sum" && s === i + 2 || kind === "atleast" && i + 2 >= s,
+    })), 6);
+    $("#lp-s").disabled = kind === "double";
+  }
+
+  const jar = $("#lp-jar");
+  let n = 8, r = 5, k = 2;
+  function renderBalls() {
+    const rInput = $("#lp-r"), kInput = $("#lp-k");
+    rInput.max = n; if (Number(rInput.value) > n) rInput.value = n; r = Number(rInput.value);
+    kInput.max = Math.min(5, n); if (Number(kInput.value) > Number(kInput.max)) kInput.value = kInput.max; k = Number(kInput.value);
+    $("#lp-r-label").textContent = r; $("#lp-k-label").textContent = k;
+    jar.replaceChildren();
+    for (let i = 0; i < n; i++) {
+      const marble = make("div", "marble");
+      marble.style.setProperty("--c", i < r ? MARBLE_COLORS.red : MARBLE_COLORS.blue);
+      marble.style.animation = `pop .4s ${i * 40}ms backwards`;
+      jar.append(marble);
+    }
+    const favorable = k <= r ? choose(r, k) : 0, all = choose(n, k);
+    $("#lp-comb").innerHTML = `P(mind piros) = ${fractionHtml(binomialHtml(r, k), binomialHtml(n, k))} = ${fractionHtml(`<b>${favorable}</b>`, `<b>${all}</b>`)} = ${formatNumber(favorable / all)}`;
+  }
+
+  document.querySelectorAll("[data-kind]").forEach(button => button.onclick = () => {
+    kind = button.dataset.kind;
+    document.querySelectorAll("[data-kind]").forEach(other => other.setAttribute("aria-pressed", other === button));
+    renderDice();
+  });
+  const updateS = bindRange($("#lp-s"), $("#lp-s-label"), value => { s = value; renderDice(); });
+  const updateN = bindRange($("#lp-n"), $("#lp-n-label"), value => { n = value; renderBalls(); });
+  $("#lp-r").oninput = renderBalls;
+  $("#lp-k").oninput = renderBalls;
+  return { start: () => { updateS(); updateN(); }, stop: () => {} };
+})();
+
+/* ---------- ESE-29 Discrete distribution ---------- */
+const distribution = (() => {
+  const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
+  const experiments = {
+    dice: {
+      label: "Két kocka összege",
+      outcomes: range(1, 6).flatMap(a => range(1, 6).map(b => a + b)),
+    },
+    coins: {
+      label: "Fejek száma 4 érmedobásból",
+      outcomes: range(0, 15).map(mask => range(0, 3).filter(bit => mask >> bit & 1).length),
+    },
+    urn: {
+      label: "Piros golyók száma 2 húzásból (3 piros, 2 kék, visszatevés nélkül)",
+      outcomes: (() => {
+        const urn = [1, 1, 1, 0, 0], result = [];
+        urn.forEach((x, i) => urn.forEach((y, j) => { if (i !== j) result.push(x + y); }));
+        return result;
+      })(),
+    },
+  };
+  let key = "dice", samples = {}, sampleTotal = 0, bars = [];
+
+  const distributionOf = experiment => {
+    const total = experiment.outcomes.length, counts = new Map();
+    experiment.outcomes.forEach(value => counts.set(value, (counts.get(value) ?? 0) + 1));
+    return { total, rows: [...counts.entries()].sort((a, b) => a[0] - b[0]) };
+  };
+
+  function render() {
+    const experiment = experiments[key], { total, rows } = distributionOf(experiment);
+    const maxCount = Math.max(...rows.map(([, count]) => count));
+    bars = renderColumns($("#ds-bars"), rows.map(([value, count]) => ({
+      label: String(value), sub: `${count}/${total}`, value: count,
+    })), maxCount * 1.15);
+    const sum = rows.map(([, count]) => count);
+    $("#ds-sum").innerHTML = `Σ P = ${sum.map(c => `${c}/${total}`).join(" + ")} = <b>${sum.reduce((x, y) => x + y, 0)}/${total} = 1</b>`;
+    $("#ds-table").innerHTML = `<tr><th>érték</th><th>valószínűség</th><th>tizedes</th><th>kísérlet</th></tr>` + rows.map(([value, count]) => {
+      const observed = sampleTotal ? formatNumber((samples[value] ?? 0) / sampleTotal * 100, 1) + " %" : "–";
+      return `<tr><td>${value}</td><td>${count}/${total}</td><td>${formatNumber(count / total)}</td><td>${observed}</td></tr>`;
+    }).join("");
+    $("#ds-info").textContent = sampleTotal ? `${sampleTotal} minta` : "";
+    playExpected();
+    if (sampleTotal) {
+      bars.forEach(({ mark, column }, i) => {
+        const observed = (samples[rows[i][0]] ?? 0) / sampleTotal * total;
+        mark.style.display = "block";
+        mark.style.bottom = `calc(${observed / (maxCount * 1.15) * 100}% - 1px)`;
+      });
+    }
+  }
+
+  let evToken = 0;
+  async function playExpected() {
+    const token = ++evToken, { total, rows } = distributionOf(experiments[key]);
+    const termsBox = $("#ds-ev-terms"), sumBox = $("#ds-ev-sum"), bars = $("#ds-bars");
+    termsBox.replaceChildren(); sumBox.textContent = ""; $("#ds-ev-note").textContent = "";
+    bars.querySelector('[data-marker="emarker"]')?.remove();
+    let running = 0;
+    for (const [value, count] of rows) {
+      if (token !== evToken) return;
+      const term = make("span", "ev-term");
+      term.innerHTML = `${value} · ${fractionHtml(count, total)}`;
+      termsBox.append(term);
+      running += value * count;
+      sumBox.innerHTML = `eddig: ${fractionHtml(running, total)} = ${formatNumber(running / total)}`;
+      await delay(rows.length > 8 ? 220 : 380);
+    }
+    if (token !== evToken) return;
+    const expected = running / total;
+    sumBox.innerHTML = `E(X) = ${fractionHtml(running, total)} = <b>${formatNumber(expected)}</b>`;
+    $("#ds-ev-note").textContent = `Az oszlopdiagramon a zöld szaggatott vonal jelöli: az eloszlás súlypontja E(X) = ${formatNumber(expected)}. Ez nem feltétlenül lehetséges érték, de hosszú távon ennyi lesz az átlag.`;
+    placeMarker(bars, "emarker", expected, rows[0][0], `E(X) = ${formatNumber(expected)}`);
+  }
+
+  function draw(times) {
+    const { outcomes } = experiments[key];
+    for (let i = 0; i < times; i++) {
+      const value = pick(outcomes);
+      samples[value] = (samples[value] ?? 0) + 1; sampleTotal++;
+    }
+    // keep the animated bars; only refresh marks and table
+    const { total, rows } = distributionOf(experiments[key]);
+    const maxCount = Math.max(...rows.map(([, count]) => count));
+    bars.forEach(({ mark }, i) => {
+      mark.style.display = "block";
+      mark.style.bottom = `calc(${(samples[rows[i][0]] ?? 0) / sampleTotal * total / (maxCount * 1.15) * 100}% - 1px)`;
+    });
+    const cells = document.querySelectorAll("#ds-table tr");
+    rows.forEach(([value], i) => { cells[i + 1].lastElementChild.textContent = formatNumber((samples[value] ?? 0) / sampleTotal * 100, 1) + " %"; });
+    const mean = rows.reduce((sum, [value]) => sum + value * (samples[value] ?? 0), 0) / sampleTotal;
+    $("#ds-info").textContent = `${sampleTotal} minta, átlag: ${formatNumber(mean)}`;
+    placeMarker($("#ds-bars"), "emarker sample", mean, rows[0][0], `átlag ${formatNumber(mean)}`);
+  }
+
+  function reset() { samples = {}; sampleTotal = 0; render(); }
+
+  function buildPicker() {
+    const box = $("#ds-picker");
+    box.replaceChildren();
+    for (const [id, experiment] of Object.entries(experiments)) {
+      const button = make("button", "toggle accent", experiment.label);
+      button.setAttribute("aria-pressed", id === key);
+      button.onclick = () => { key = id; buildPicker(); reset(); };
+      box.append(button);
+    }
+  }
+
+  document.querySelectorAll("[data-samples]").forEach(button => button.onclick = () => draw(Number(button.dataset.samples)));
+  $("#ds-reset").onclick = reset;
+  $("#ds-ev-play").onclick = playExpected;
+  return { start: () => { buildPicker(); reset(); }, stop: () => { evToken++; } };
+})();
+
+/* ---------- ESE-29 Expected value in games of chance ---------- */
+const gambling = (() => {
+  const games = {
+    wheel: {
+      label: "Szerencsekerék",
+      price: 300,
+      outcomes: [{ prize: 0, weight: 45 }, { prize: 200, weight: 30 }, { prize: 500, weight: 15 }, { prize: 1000, weight: 8 }, { prize: 2000, weight: 2 }],
+      unit: "a kerék körcikke",
+    },
+    ticket: {
+      label: "Sorsjegy (1000 db)",
+      price: 200,
+      outcomes: [{ prize: 0, weight: 874 }, { prize: 200, weight: 100 }, { prize: 1000, weight: 20 }, { prize: 5000, weight: 5 }, { prize: 50000, weight: 1 }],
+      unit: "sorsjegy",
+    },
+  };
+  const TIER_COLORS = ["var(--line-strong)", "var(--c1)", "var(--c2)", "var(--c3)", "var(--c5)"];
+  let key = "wheel", price = 300, plays = 0, spent = 0, won = 0, series = [], counts = [], rotation = 0, busy = false, token = 0;
+  let ticketCells = [];
+
+  const money = value => `${value < 0 ? "−" : ""}${Math.abs(Math.round(value * 100) / 100).toLocaleString("hu-HU")} Ft`;
+  const game = () => games[key];
+  const totalWeight = () => game().outcomes.reduce((sum, outcome) => sum + outcome.weight, 0);
+  const expectedPrize = () => game().outcomes.reduce((sum, outcome) => sum + outcome.prize * outcome.weight, 0) / totalWeight();
+  const polar = (angle, radius) => [radius * Math.sin(angle * Math.PI / 180), -radius * Math.cos(angle * Math.PI / 180)];
+
+  function sectorBounds() {
+    let start = 0;
+    return game().outcomes.map(outcome => { const size = outcome.weight / totalWeight() * 360; const bounds = [start, start + size]; start += size; return bounds; });
+  }
+
+  function buildWheel() {
+    const NS = "http://www.w3.org/2000/svg", bounds = sectorBounds();
+    const svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", "-115 -125 230 240");
+    svg.style.cssText = "width:100%;max-width:300px;display:block;margin:auto";
+    const group = document.createElementNS(NS, "g");
+    group.id = "gm-wheel";
+    group.style.transition = "transform 2.2s cubic-bezier(.15,.7,.15,1)";
+    group.style.transform = `rotate(${rotation}deg)`;
+    game().outcomes.forEach((outcome, i) => {
+      const [a0, a1] = bounds[i], [x0, y0] = polar(a0, 100), [x1, y1] = polar(a1, 100);
+      const path = document.createElementNS(NS, "path");
+      path.setAttribute("d", `M0,0 L${x0},${y0} A100,100 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${x1},${y1} Z`);
+      path.setAttribute("fill", TIER_COLORS[i % TIER_COLORS.length]);
+      path.setAttribute("stroke", "var(--bg)"); path.setAttribute("stroke-width", "2");
+      group.append(path);
+      if (a1 - a0 > 20) {
+        const [tx, ty] = polar((a0 + a1) / 2, 66), text = document.createElementNS(NS, "text");
+        text.setAttribute("x", tx); text.setAttribute("y", ty); text.setAttribute("text-anchor", "middle"); text.setAttribute("dominant-baseline", "middle");
+        text.setAttribute("style", "fill:#fff;font-weight:800;font-size:13px");
+        text.textContent = outcome.prize ? `${outcome.prize}` : "0";
+        group.append(text);
+      }
+    });
+    const hub = document.createElementNS(NS, "circle");
+    hub.setAttribute("r", "9"); hub.setAttribute("fill", "var(--bg)"); hub.setAttribute("stroke", "var(--line-strong)");
+    const pointer = document.createElementNS(NS, "path");
+    pointer.setAttribute("d", "M-9,-112 L9,-112 L0,-94 Z"); pointer.setAttribute("fill", "var(--accent)");
+    svg.append(group, hub, pointer);
+    const box = $("#gm-visual");
+    box.replaceChildren(svg);
+  }
+
+  function buildTickets() {
+    const box = $("#gm-visual");
+    box.replaceChildren();
+    const grid = make("div");
+    grid.style.cssText = "display:grid;grid-template-columns:repeat(40,1fr);gap:2px";
+    const tiers = game().outcomes.flatMap((outcome, i) => Array(outcome.weight).fill(i));
+    for (let i = tiers.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [tiers[i], tiers[j]] = [tiers[j], tiers[i]]; }
+    ticketCells = tiers.map(tier => {
+      const cell = make("div");
+      cell.style.cssText = `aspect-ratio:1;border-radius:2px;background:${TIER_COLORS[tier % TIER_COLORS.length]};opacity:${tier === 0 ? .35 : 1};transition:transform .25s`;
+      cell.dataset.tier = tier;
+      grid.append(cell);
+      return cell;
+    });
+    box.append(grid, make("p", "muted", "Minden négyzet egy sorsjegy. A szürkék üresek, a színesek nyernek."));
+    box.append(legend());
+  }
+
+  function legend() {
+    const box = make("div", "controls");
+    game().outcomes.forEach((outcome, i) => {
+      const chip = make("span", "chip", outcome.prize ? money(outcome.prize) : "nincs nyeremény");
+      chip.style.background = TIER_COLORS[i % TIER_COLORS.length]; chip.style.fontSize = ".72rem"; chip.style.height = "22px";
+      box.append(chip);
+    });
+    return box;
+  }
+
+  function renderTable(animate = false) {
+    const total = totalWeight(), outcomes = game().outcomes;
+    $("#gm-table").innerHTML = `<tr><th>nyeremény</th><th>valószínűség</th><th>nyeremény · P</th><th>kísérlet</th></tr>` + outcomes.map((outcome, i) => {
+      const observed = plays ? formatNumber((counts[i] ?? 0) / plays * 100, 1) + " %" : "–";
+      return `<tr><td style="color:${TIER_COLORS[i % TIER_COLORS.length] === "var(--line-strong)" ? "var(--muted)" : TIER_COLORS[i % TIER_COLORS.length]};font-weight:700">${money(outcome.prize)}</td>
+        <td>${fractionHtml(outcome.weight, total)}</td>
+        <td class="${animate ? "contribution" : ""}" style="animation-delay:${i * 0.35}s">${formatNumber(outcome.prize * outcome.weight / total, 2)} Ft</td>
+        <td>${observed}</td></tr>`;
+    }).join("");
+    const terms = outcomes.filter(outcome => outcome.prize).map(outcome => `${outcome.prize} · ${outcome.weight}/${total}`).join(" + ");
+    const expected = expectedPrize(), net = expected - price;
+    $("#gm-formula").innerHTML = `<div class="${animate ? "later-eval" : ""}" style="line-height:1.9;animation-delay:${outcomes.length * 0.35}s">E(nyeremény) = ${terms} = <b>${money(expected)}</b><br>E(nettó) = ${money(expected)} − ${money(price)} = <b style="color:${net >= 0 ? "var(--accent)" : "var(--warn)"}">${money(net)}</b> játékonként</div>`;
+  }
+
+  function renderStats() {
+    const net = expectedPrize() - price;
+    $("#gm-stats").textContent = plays
+      ? `${plays} játék: befizetve ${money(spent)}, kifizetve ${money(won)}, egyenleg ${money(won - spent)}; átlag ${money((won - spent) / plays)} / játék (várható: ${money(net)}).`
+      : "";
+    drawChart();
+  }
+
+  function drawChart() {
+    const canvas = $("#gm-chart"), context = canvas.getContext("2d"), style = getComputedStyle(document.body);
+    const { width, height } = canvas, pad = 34, target = expectedPrize() - price, half = Math.max(price, 150) * 1.1;
+    const yOf = value => height - pad - ((Math.min(Math.max(value, target - half), target + half) - (target - half)) / (2 * half)) * (height - 2 * pad);
+    context.clearRect(0, 0, width, height);
+    context.font = "12px system-ui";
+    context.strokeStyle = style.getPropertyValue("--line"); context.fillStyle = style.getPropertyValue("--muted");
+    [0, target].forEach(value => {
+      context.beginPath(); context.moveTo(pad + 20, yOf(value)); context.lineTo(width - 8, yOf(value)); context.stroke();
+    });
+    context.fillText("0 Ft", 2, yOf(0) + 4);
+    context.setLineDash([6, 5]); context.strokeStyle = style.getPropertyValue("--accent");
+    context.beginPath(); context.moveTo(pad + 20, yOf(target)); context.lineTo(width - 8, yOf(target)); context.stroke();
+    context.setLineDash([]);
+    context.fillStyle = style.getPropertyValue("--accent"); context.fillText(`E = ${Math.round(target)} Ft`, width - 90, yOf(target) - 6);
+    if (series.length) {
+      const span = Math.max(30, series.length);
+      context.strokeStyle = style.getPropertyValue("--c1"); context.lineWidth = 2.5; context.beginPath();
+      series.forEach((value, i) => {
+        const x = pad + 20 + (i / (span - 1)) * (width - pad - 28);
+        if (i === 0) context.moveTo(x, yOf(value)); else context.lineTo(x, yOf(value));
+      });
+      context.stroke(); context.lineWidth = 1;
+    }
+    context.fillStyle = style.getPropertyValue("--muted"); context.fillText("játékok száma →", width - 110, height - 6);
+  }
+
+  function pickOutcome() {
+    let roll = Math.random() * totalWeight();
+    for (let i = 0; i < game().outcomes.length; i++) { roll -= game().outcomes[i].weight; if (roll < 0) return i; }
+    return game().outcomes.length - 1;
+  }
+
+  function record(index) {
+    plays++; spent += price; won += game().outcomes[index].prize; counts[index] = (counts[index] ?? 0) + 1;
+    series.push((won - spent) / plays);
+  }
+
+  let renderQueued = false;
+  function scheduleRender() {
+    if (renderQueued) return;
+    renderQueued = true;
+    requestAnimationFrame(() => { renderQueued = false; renderTable(); renderStats(); });
+  }
+
+  function flashCell(cell, milliseconds) {
+    cell.style.position = "relative"; cell.style.zIndex = "2";
+    cell.style.transform = "scale(2.6)"; cell.style.outline = "2px solid var(--ink)";
+    clearTimeout(cell.resetTimer);
+    cell.resetTimer = setTimeout(() => { cell.style.transform = ""; cell.style.outline = ""; cell.style.zIndex = ""; }, milliseconds);
+  }
+
+  // One play: the result is recorded immediately, the animation only decorates it, so clicks can be spammed.
+  function playOnce(fast = false) {
+    const index = pickOutcome(), outcome = game().outcomes[index];
+    if (key === "wheel") {
+      const [a0, a1] = sectorBounds()[index], target = a0 + (a1 - a0) * (0.15 + Math.random() * 0.7);
+      rotation = Math.floor(rotation / 360) * 360 + 360 * (fast ? 1 : 3) + (360 - target);
+      const wheel = $("#gm-wheel");
+      wheel.style.transitionDuration = fast ? ".12s" : "1s";
+      wheel.style.transform = `rotate(${rotation}deg)`;
+    } else {
+      flashCell(pick(ticketCells.filter(cell => Number(cell.dataset.tier) === index)), fast ? 160 : 600);
+    }
+    record(index);
+    $("#gm-result").textContent = `Nyeremény: ${money(outcome.prize)} (ár: ${money(price)} → ${money(outcome.prize - price)})`;
+    scheduleRender();
+  }
+
+  function playBatch(times) {
+    const my = token;
+    let left = times;
+    const timer = setInterval(() => {
+      if (my !== token || left-- <= 0) { clearInterval(timer); return; }
+      playOnce(true);
+    }, 15);
+  }
+
+  function playMany(times) {
+    for (let i = 0; i < times; i++) record(pickOutcome());
+    $("#gm-result").textContent = "";
+    renderTable(); renderStats();
+  }
+  function reset() {
+    token++; busy = false; plays = 0; spent = 0; won = 0; series = []; counts = []; $("#gm-result").textContent = "";
+    key === "wheel" ? buildWheel() : buildTickets();
+    renderTable(true); renderStats();
+  }
+
+  function buildPicker() {
+    const box = $("#gm-picker");
+    box.replaceChildren();
+    for (const [id, item] of Object.entries(games)) {
+      const button = make("button", "toggle accent", item.label);
+      button.setAttribute("aria-pressed", id === key);
+      button.onclick = () => { key = id; price = games[id].price; $("#gm-price").value = price; $("#gm-price-label").textContent = price; buildPicker(); reset(); };
+      box.append(button);
+    }
+  }
+
+  $("#gm-price").oninput = event => { price = Number(event.target.value); $("#gm-price-label").textContent = price; token++; busy = false; plays = 0; spent = 0; won = 0; series = []; counts = []; renderTable(true); renderStats(); };
+  $("#gm-fair").onclick = () => {
+    price = Math.min(600, Math.max(50, Math.round(expectedPrize() / 10) * 10));
+    $("#gm-price").value = price; $("#gm-price-label").textContent = price; token++; busy = false; plays = 0; spent = 0; won = 0; series = []; counts = []; renderTable(true); renderStats();
+  };
+  $("#gm-play").onclick = () => playOnce();
+  $("#gm-x100").onclick = () => playBatch(100);
+  $("#gm-x5000").onclick = () => playMany(5000);
+  $("#gm-reset").onclick = reset;
+  return {
+    start: () => { key = "wheel"; price = games.wheel.price; $("#gm-price").value = price; $("#gm-price-label").textContent = price; buildPicker(); reset(); },
+    stop: () => { token++; },
+  };
+})();
+
+/* ---------- tabs ---------- */
+const modules = {
+  "s-prob": probability, "s-perm": permutations, "s-mult": multiplication,
+  "s-comb": combinations, "s-kinds": samplingKinds, "s-laplace": laplace, "s-events": events,
+  "s-sample": { start: () => { sampling.start(); hypergeometric.start(); }, stop: () => { sampling.stop(); hypergeometric.stop(); } },
+  "s-dist": { start: () => { distribution.start(); gambling.start(); }, stop: () => { distribution.stop(); gambling.stop(); } },
+};
+// prerequisites first, then the ESE skills in order
+const TAB_ORDER = ["s-prob", "s-perm", "s-mult", "s-comb", "s-kinds", "s-laplace", "s-events", "s-sample", "s-dist"];
+const tabs = $("#tabs");
+const BRANCH_COLORS = {
+  "s-prob": "var(--c5)", "s-perm": "var(--c6)", "s-mult": "var(--c6)", "s-comb": "var(--c6)", "s-kinds": "var(--c5)",
+  "s-laplace": "var(--c5)", "s-events": "var(--c5)", "s-sample": "var(--c5)", "s-dist": "var(--c5)",
+};
+function show(id) {
+  Object.entries(modules).forEach(([key, module]) => { if (key !== id) module.stop(); });
+  document.querySelectorAll("main > section").forEach(section => { section.hidden = section.id !== id; });
+  tabs.querySelectorAll("button").forEach(button => button.setAttribute("aria-selected", button.dataset.id === id));
+  history.replaceState(null, "", "#" + id);
+  modules[id].start();
+  window.scrollTo(0, 0);
+}
+TAB_ORDER.forEach(id => {
+  const section = document.getElementById(id);
+  const button = make("button", "", section.dataset.title);
+  button.prepend(Object.assign(make("i"), { style: `--c:${BRANCH_COLORS[id]}` }));
+  section.prepend(make("p", "eyebrow", section.dataset.eyebrow));
+  button.dataset.id = section.id;
+  button.setAttribute("role", "tab");
+  button.onclick = () => show(section.id);
+  tabs.append(button);
+});
+show(modules[location.hash.slice(1)] ? location.hash.slice(1) : "s-prob");
+</script>
+</body>
+</html>
