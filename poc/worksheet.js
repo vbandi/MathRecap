@@ -1,11 +1,11 @@
+import { findSkill, skills } from "./curriculum.mjs";
+import { renderFigure } from "./figures.js";
 import { illustrations, hasIllustration } from "./illustrations/registry.js";
 import { loadLocalState } from "./state.js";
 import { needsInlineMathSeparator, orderedProblemPairs, studentProblems } from "./worksheet-model.mjs";
 
-const nodes = window.TREE_NODES ?? [];
-const skillId = new URLSearchParams(window.location.search).get("skill");
-const skill = nodes.find((node) => node.id === skillId);
-const state = loadLocalState(window.localStorage, nodes.map((node) => node.id));
+const skill = findSkill(new URLSearchParams(window.location.search).get("skill"));
+const state = loadLocalState(window.localStorage, skills.map(({ id }) => id));
 const context = document.getElementById("skill-context");
 const requestInput = document.getElementById("worksheet-request");
 const generateButton = document.getElementById("generate-button");
@@ -31,7 +31,8 @@ function renderContent(parts, target) {
   for (const [index, part] of parts.entries()) {
     const previousPart = parts[index - 1];
     const nextPart = parts[index + 1];
-    if (part.type === "text") {
+    if (part.type === "figure") target.append(renderFigure(part));
+    else if (part.type === "text") {
       if (previousPart?.type === "inlineMath" && needsInlineMathSeparator(previousPart, part)) target.append(text(" "));
       target.append(text(part.value));
     }
@@ -105,11 +106,28 @@ function renderAnswers() {
   orderedProblemPairs(worksheet).forEach(({ problem, answer }, index) => {
     const answerNode = document.createElement("section"); answerNode.className = "answer";
     answerNode.append(element("h2", `${index + 1}. feladat`));
-    const prompt = document.createElement("p"); renderContent(problem.prompt, prompt); answerNode.append(prompt);
+    const prompt = document.createElement("div"); renderContent(problem.prompt, prompt); answerNode.append(prompt);
     answerNode.append(element("h3", "Megoldás")); const solution = document.createElement("div"); renderContent(answer.answer, solution); answerNode.append(solution);
     answerNode.append(element("h3", "Indoklás")); const reasoning = document.createElement("div"); renderContent(answer.reasoning, reasoning); answerNode.append(reasoning);
     answersView.append(answerNode);
   });
+
+  if (worksheet.diagnosticNotes.length) {
+    answersView.append(element("h2", "Gyakori hibák"));
+    const notes = document.createElement("ul");
+    worksheet.diagnosticNotes.forEach(({ skillId, note }) => {
+      const item = element("li", note);
+      const relatedSkill = findSkill(skillId);
+      item.append(element("span", `Átismétlendő: ${skillId}${relatedSkill ? ` ${relatedSkill.name}` : ""}`, "diagnostic-skill"));
+      notes.append(item);
+    });
+    answersView.append(notes);
+  }
+
+  answersView.append(element("h2", "Hogyan tovább?"));
+  const nextSteps = document.createElement("ul");
+  worksheet.suggestedNextSteps.forEach((step) => nextSteps.append(element("li", step)));
+  answersView.append(nextSteps);
 }
 
 function showView(view) {
@@ -137,7 +155,7 @@ async function generate() {
   try {
     const response = await fetch("/api/worksheets", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ modelId: state.selectedModel, profile: state.profile, request, skill: { id: skill.id, name: skill.name, description: skill.description, prerequisites: skill.prerequisites, relatedSkillIds: skill.descendants } }),
+      body: JSON.stringify({ modelId: state.selectedModel, profile: state.profile, request, skillId: skill.id }),
     });
     const payload = await response.json();
     if (!response.ok) throw new Error(payload?.error?.message || "A feladatlap most nem készült el.");

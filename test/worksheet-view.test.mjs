@@ -64,3 +64,13 @@ test("student worksheet renderer includes the settled student sections only", ()
   }
   assert.doesNotMatch(studentRenderer, /(?:answer|date|dátum|név|name)[ -]?(?:line|field|input)/i);
 });
+
+test("answer key renders every generated section the student sheet leaves out", () => {
+  const rendererSource = readFileSync(new URL("../poc/worksheet.js", import.meta.url), "utf8");
+  const answerRenderer = rendererSource.match(/function renderAnswers\(\) \{([\s\S]*?)\n\}/)?.[1];
+
+  assert.ok(answerRenderer);
+  for (const field of ["diagnosticNotes", "suggestedNextSteps"]) {
+    assert.match(answerRenderer, new RegExp(`worksheet\\.${field}`));
+  }
+});

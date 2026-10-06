@@ -1,5 +1,6 @@
 "use strict";
 
+import { dependentsOf, skills } from "./curriculum.mjs";
 import { cacheUsefulness, calibrationProposal, loadLocalState, recomputeLocks, saveLocalState, setManualMastery, undoCalibrationProposal, updateProfileAndModel, usefulnessDisplayState } from "./state.js";
 
 const BRANCHES = {
@@ -29,17 +30,9 @@ const LABEL_THRESHOLD = 0.5;         // az egyetlen zoom-küszöb
 
 // ---------------------------------------------------------------- adatok
 
-const nodes = window.TREE_NODES;
+// Copies, because the layout and the mastery display add fields to each node.
+const nodes = skills.map((skill) => ({ ...skill, descendants: dependentsOf(skill.id), mastery: 0, locked: false }));
 const byId = new Map(nodes.map((n) => [n.id, n]));
-
-for (const n of nodes) {
-  n.descendants = [];
-  n.mastery = 0;
-  n.locked = false;
-}
-for (const n of nodes) {
-  for (const p of n.prerequisites) byId.get(p).descendants.push(n.id);
-}
 
 // Réteg = leghosszabb út a gyökerektől; egyben topologikus sorrend.
 const topologicalOrder = (function () {
@@ -151,6 +144,10 @@ const panel = document.getElementById("panel");
 const panelBody = document.getElementById("panel-body");
 
 let view = { x: 0, y: 0, z: 1 };
+// Per-tab view state, so returning from the practice page shows the tree as it was left.
+const VIEW_STATE_KEY = "mathrecap.tree-view";
+const savedViewState = loadViewState();
+let learningPathSkillId = null;
 let dpr = 1, W = 0, H = 0;
 let hover = null, selected = null;
 let usefulnessFallbackSkillId = null;
@@ -189,6 +186,14 @@ function fitToScreen() {
 // A teljes fa áttekintő zoomon olvashatatlan; induláskor ezért a címkeküszöb fölött kezdünk.
 function initialView() {
   if (!W || !H) return;
+  const [centerX, centerY] = savedViewState?.center ?? [];
+  if (Number.isFinite(centerX) && Number.isFinite(centerY) && Number.isFinite(savedViewState.zoom)) {
+    view.z = Math.min(2.2, Math.max(0.1, savedViewState.zoom));
+    view.x = W / 2 - centerX * view.z;
+    view.y = H / 2 - centerY * view.z;
+    draw();
+    return;
+  }
   view.z = 0.58;
   view.x = W / 2 - (worldWidth / 2) * view.z;
   view.y = 24;
@@ -247,12 +252,12 @@ function visibility(n) {
   return 1;
 }
 
+// Fades towards the current visibility, so state changes during a fade are not overwritten.
 function displayedVisibility(n) {
   if (!visibilityFade) return visibility(n);
   const progress = Math.min(1, (performance.now() - visibilityFade.startedAt) / VISIBILITY_FADE_MS);
   const from = visibilityFade.from.get(n.id);
-  const to = visibilityFade.to.get(n.id);
-  return from + (to - from) * progress;
+  return from + (visibility(n) - from) * progress;
 }
 
 function requestVisibilityDraw() {
@@ -264,11 +269,7 @@ function requestVisibilityDraw() {
 }
 
 function beginVisibilityFade(from) {
-  visibilityFade = {
-    startedAt: performance.now(),
-    from,
-    to: new Map(nodes.map((n) => [n.id, visibility(n)])),
-  };
+  visibilityFade = { startedAt: performance.now(), from };
   requestVisibilityDraw();
 }
 
@@ -597,6 +598,7 @@ function resetTree() {
   hover = null;
   selected = null;
   matches = new Set();
+  learningPathSkillId = null;
   search.value = "";
   search.blur();
   tip.style.display = "none";
@@ -671,11 +673,7 @@ async function generateUsefulness(skill) {
     const response = await fetch("/api/usefulness", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        modelId: localState.selectedModel,
-        profile: localState.profile,
-        skill: { id: skill.id, name: skill.name, description: skill.description, prerequisites: skill.prerequisites, relatedSkillIds: skill.descendants },
-      }),
+      body: JSON.stringify({ modelId: localState.selectedModel, profile: localState.profile, skillId: skill.id }),
     });
     const payload = await response.json();
     if (!response.ok) throw new Error(payload?.error?.message || "Az indoklás most nem érhető el.");
@@ -691,6 +689,7 @@ panel.querySelector(".close").addEventListener("click", closePanel);
 
 function learningPath(n) {
   const required = [...traverse(n, "prerequisites")].map(byId.get.bind(byId)).filter((x) => x.mastery < 2);
+  learningPathSkillId = n.id;
   matches = new Set([n.id, ...required.map((x) => x.id)]);
   highlightedAncestors = new Set(); highlightedDescendants = new Set();
   const order = topologicalOrder.filter((id) => matches.has(id) && id !== n.id);
@@ -928,14 +927,18 @@ function goToBranch(branch) {
 }
 
 const search = document.getElementById("search");
-search.addEventListener("input", () => {
+function applySearch() {
   const q = search.value.trim().toLowerCase();
   matches = new Set();
+  learningPathSkillId = null;
   if (q.length >= 2) {
     for (const n of nodes) {
       if (n.id.toLowerCase().includes(q) || n.name.toLowerCase().includes(q)) matches.add(n.id);
     }
   }
+}
+search.addEventListener("input", () => {
+  applySearch();
   draw();
 });
 search.addEventListener("keydown", (e) => {
@@ -955,5 +958,55 @@ window.addEventListener("keydown", (e) => {
   if (e.key >= "1" && e.key <= "6") goToBranch(BRANCH_ORDER[+e.key - 1]);
 });
 
+// ---------------------------------------------------------------- nézetállapot
+
+function loadViewState() {
+  try {
+    const saved = JSON.parse(window.sessionStorage.getItem(VIEW_STATE_KEY));
+    return saved && typeof saved === "object" ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveViewState() {
+  const center = W && H ? screenToWorld(W / 2, H / 2) : null;
+  const viewState = {
+    center: center ? [center.x, center.y] : savedViewState?.center ?? null,
+    zoom: center ? view.z : savedViewState?.zoom ?? null,
+    selectedSkillId: selected?.id ?? null,
+    search: search.value,
+    onlyGateways,
+    learningPathSkillId,
+  };
+  try {
+    window.sessionStorage.setItem(VIEW_STATE_KEY, JSON.stringify(viewState));
+  } catch {
+    // Session storage can be unavailable; the tree then starts from its default view.
+  }
+}
+
+// Restores without animations; the camera follows in initialView(), once the canvas has a size.
+function restoreViewState() {
+  if (!savedViewState) return;
+  onlyGateways = savedViewState.onlyGateways === true;
+  if (typeof savedViewState.search === "string" && savedViewState.search) {
+    search.value = savedViewState.search;
+    applySearch();
+  }
+  const selectedSkill = byId.get(savedViewState.selectedSkillId);
+  if (selectedSkill) {
+    panel.style.transition = "none";
+    selectNode(selectedSkill);
+    void panel.offsetWidth;
+    panel.style.removeProperty("transition");
+  }
+  const pathSkill = byId.get(savedViewState.learningPathSkillId);
+  if (pathSkill) learningPath(pathSkill);
+  visibilityFade = null;
+}
+
+window.addEventListener("pagehide", saveViewState);
+restoreViewState();
 resize();
 if (!localState.onboardingComplete) openOnboarding();

@@ -3,6 +3,7 @@ import { createServer as createHttpServer } from "node:http";
 import { extname, isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ZodError } from "zod";
+import { findSkill } from "./poc/curriculum.mjs";
 import { generateUsefulness, generateWorksheet, listModels, normalizeOpenRouterError } from "./server/openrouter.mjs";
 import { usefulnessRequestSchema, worksheetRequestSchema } from "./server/schemas.mjs";
 
@@ -113,14 +114,13 @@ export function createAppServer({ apiKey = process.env.OPENROUTER_API_KEY, fetch
         return sendJson(response, 200, { models });
       }
       if (request.method === "POST" && url.pathname === "/api/usefulness") {
-        const body = usefulnessRequestSchema.parse(await readJson(request));
-        const usefulness = await generateUsefulness({ ...body, apiKey, fetchImpl, timeoutMs });
+        const { skillId, ...body } = usefulnessRequestSchema.parse(await readJson(request));
+        const usefulness = await generateUsefulness({ ...body, skill: findSkill(skillId), apiKey, fetchImpl, timeoutMs });
         return sendJson(response, 200, { usefulness });
       }
       if (request.method === "POST" && url.pathname === "/api/worksheets") {
-        const body = worksheetRequestSchema.parse(await readJson(request));
-        const validSkillIds = new Set([body.skill.id, ...body.skill.prerequisites, ...body.skill.relatedSkillIds]);
-        const worksheet = await generateWorksheet({ ...body, apiKey, fetchImpl, timeoutMs, validSkillIds });
+        const { skillId, ...body } = worksheetRequestSchema.parse(await readJson(request));
+        const worksheet = await generateWorksheet({ ...body, skill: findSkill(skillId), apiKey, fetchImpl, timeoutMs });
         return sendJson(response, 200, { worksheet });
       }
       if (url.pathname.startsWith("/api/")) return sendError(response, 404, "not_found", "Az API-végpont nem található.");

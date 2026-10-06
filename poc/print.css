@@ -42,6 +42,11 @@ body[data-request-state="loading"] #request-status { color: var(--dim); }
 .checklist { padding-left: 4px; list-style: none; }
 .checklist li::before { content: "☐"; margin-right: 9px; color: #7d8a57; }
 .katex-display { overflow-x: auto; overflow-y: hidden; }
+.diagnostic-skill { display: block; color: #5b6078; font-size: 13px; }
+.ws-figure { margin: 12px 0; break-inside: avoid; }
+.ws-figure svg { display: block; max-width: 100%; height: auto; overflow: visible; font-family: var(--font); }
+.ws-figure figcaption { margin-top: 4px; color: #5b6078; font-size: 13px; font-style: italic; }
+.ws-figure-error { margin: 0; color: #9a4a2a; font-size: 13px; }
 @media (max-width: 600px) { main { margin: 16px auto; padding: 0 12px; } .request-panel { padding: 20px; } .print-document { padding: 30px 24px; } }
 @media print {
   @page { size: A4 portrait; margin: 14mm 15mm 16mm; }

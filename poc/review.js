@@ -1,5 +1,6 @@
 // Review checklist for the skill illustrations. Flags were collected from the authoring
 // agents' reports and the integration pass; review state lives in localStorage.
+import { skills } from "./curriculum.mjs";
 
 const STORAGE_KEY = "mathrecap.illustrationReview.v1";
 const BRANCHES = { LOG: "Logika", SZA: "Számok", ALG: "Algebra", FUG: "Függvények", GEO: "Geometria", ESE: "Esély" };
@@ -152,7 +153,7 @@ function element(tag, className, text) {
   return node;
 }
 
-const nodes = window.TREE_NODES ?? [];
+const nodes = skills;
 const nameOf = new Map(nodes.map((node) => [node.id, node.name]));
 const review = loadReview();
 const filters = { flaggedOnly: false, status: "all" };

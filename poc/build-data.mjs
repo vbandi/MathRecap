@@ -1,5 +1,5 @@
-// Kiolvassa az agak/*.md táblázataiból a csomópontokat, és data.js-t ír.
-// Futtatás: node poc/build-data.mjs
+// Reads the skill tables in agak/*.md and writes poc/curriculum-data.mjs.
+// Run: node poc/build-data.mjs
 import { readFileSync, writeFileSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -42,10 +42,24 @@ for (const node of nodes) {
   }
 }
 
-const out = `// Generált fájl - ne szerkeszd. Forrás: agak/*.md, generátor: poc/build-data.mjs
-window.TREE_NODES = ${JSON.stringify(nodes, null, 1)};
+// The tree layout and locking assume an acyclic prerequisite graph.
+const byId = new Map(nodes.map((node) => [node.id, node]));
+const finished = new Set();
+const visiting = [];
+function visit(node) {
+  if (finished.has(node.id)) return;
+  if (visiting.includes(node.id)) throw new Error(`Kör az előfeltételekben: ${[...visiting.slice(visiting.indexOf(node.id)), node.id].join(" → ")}`);
+  visiting.push(node.id);
+  node.prerequisites.forEach((prerequisiteId) => visit(byId.get(prerequisiteId)));
+  visiting.pop();
+  finished.add(node.id);
+}
+nodes.forEach(visit);
+
+const out = `// Generated file - do not edit. Source: agak/*.md, generator: poc/build-data.mjs
+export const skills = ${JSON.stringify(nodes, null, 1)};
 `;
-writeFileSync(join(root, "poc", "data.js"), out, "utf8");
+writeFileSync(join(root, "poc", "curriculum-data.mjs"), out, "utf8");
 
 const perBranch = {};
 for (const node of nodes) perBranch[node.branch] = (perBranch[node.branch] ?? 0) + 1;

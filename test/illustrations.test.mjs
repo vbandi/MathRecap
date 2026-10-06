@@ -1,15 +1,13 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
+import { findSkill } from "../poc/curriculum.mjs";
 import { illustrations, hasIllustration } from "../poc/illustrations/registry.js";
 import { formatNumber, gcd, withInstrumental } from "../poc/illustrations/kit.js";
 import { formula } from "../poc/illustrations/fug-10.js";
 
-const skillIds = new Set([...readFileSync(new URL("../poc/data.js", import.meta.url), "utf8").matchAll(/"id": "([A-Z]{3}-\d+)"/g)].map(([, id]) => id));
-
 test("every illustration belongs to an existing skill and exports mount", async () => {
   for (const [skillId, load] of Object.entries(illustrations)) {
-    assert.ok(skillIds.has(skillId), `${skillId} is not a skill in data.js`);
+    assert.ok(findSkill(skillId), `${skillId} is not a skill in the curriculum`);
     const module = await load();
     assert.equal(typeof module.mount, "function", `${skillId} does not export mount()`);
   }

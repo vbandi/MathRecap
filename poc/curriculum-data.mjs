@@ -1,5 +1,5 @@
-// Generált fájl - ne szerkeszd. Forrás: agak/*.md, generátor: poc/build-data.mjs
-window.TREE_NODES = [
+// Generated file - do not edit. Source: agak/*.md, generator: poc/build-data.mjs
+export const skills = [
  {
   "id": "LOG-01",
   "branch": "LOG",

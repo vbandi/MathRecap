@@ -1,13 +1,14 @@
-import { modelCatalogSchema, parseWorksheetResponse, usefulnessResponseSchema, worksheetResponseSchema } from "./schemas.mjs";
-import { usefulnessMessages, worksheetCorrectionMessages, worksheetMessages } from "./prompts.mjs";
+import { modelCatalogSchema, parseWorksheetResponse, usefulnessJsonSchema, usefulnessResponseSchema, worksheetJsonSchema } from "./schemas.mjs";
+import { usefulnessMessages, worksheetCorrectionMessages, worksheetMessages, worksheetSkillIds } from "./prompts.mjs";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1";
 
 export class OpenRouterError extends Error {
-  constructor(code, message, status = 502) {
+  constructor(code, message, status = 502, upstreamStatus = undefined) {
     super(message);
     this.code = code;
     this.status = status;
+    this.upstreamStatus = upstreamStatus;
   }
 }
 
@@ -21,9 +22,9 @@ export function normalizeOpenRouterError(error) {
   if (error instanceof OpenRouterError) return error;
   if (error?.name === "AbortError") return new OpenRouterError("timeout", "Az OpenRouter-kérés időtúllépés miatt megszakadt.", 504);
   const status = error?.status ?? error?.statusCode;
-  if (status === 429) return new OpenRouterError("rate_limited", "Az OpenRouter átmenetileg korlátozza a kéréseket.", 429);
-  if (status === 404) return new OpenRouterError("model_unavailable", "A kiválasztott modell jelenleg nem érhető el.", 404);
-  return new OpenRouterError("upstream_error", "Az OpenRouter-kérés sikertelen volt. Próbáld később újra.", 502);
+  if (status === 429) return new OpenRouterError("rate_limited", "Az OpenRouter átmenetileg korlátozza a kéréseket.", 429, status);
+  if (status === 404) return new OpenRouterError("model_unavailable", "A kiválasztott modell jelenleg nem érhető el.", 404, status);
+  return new OpenRouterError("upstream_error", "Az OpenRouter-kérés sikertelen volt. Próbáld később újra.", 502, status);
 }
 
 async function requestJson(path, { apiKey, fetchImpl, timeoutMs }) {
@@ -62,7 +63,18 @@ export async function listModels(options) {
   }
 }
 
-async function requestCompletion({ apiKey, fetchImpl, timeoutMs, modelId, messages }) {
+// OpenRouter rejects json_schema for models without structured-output support (400, or 404 when no
+// endpoint supports it). Those fall back to plain JSON mode; the prompt carries the schema either way.
+async function requestCompletion({ schemaName, jsonSchema, ...options }) {
+  try {
+    return await postCompletion(options, { type: "json_schema", json_schema: { name: schemaName, strict: false, schema: jsonSchema } });
+  } catch (error) {
+    if (error.upstreamStatus !== 400 && error.upstreamStatus !== 404) throw error;
+    return postCompletion(options, { type: "json_object" });
+  }
+}
+
+async function postCompletion({ apiKey, fetchImpl, timeoutMs, modelId, messages }, responseFormat) {
   requireApiKey(apiKey);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -73,7 +85,7 @@ async function requestCompletion({ apiKey, fetchImpl, timeoutMs, modelId, messag
       body: JSON.stringify({
         model: modelId,
         messages,
-        response_format: { type: "json_object" },
+        response_format: responseFormat,
       }),
       signal: controller.signal,
     });
@@ -95,7 +107,7 @@ async function requestCompletion({ apiKey, fetchImpl, timeoutMs, modelId, messag
 
 export async function generateUsefulness({ apiKey, fetchImpl, timeoutMs, modelId, profile, skill }) {
   const payload = await requestCompletion({
-    apiKey, fetchImpl, timeoutMs, modelId,
+    apiKey, fetchImpl, timeoutMs, modelId, schemaName: "usefulness", jsonSchema: usefulnessJsonSchema,
     messages: usefulnessMessages({ profile, skill }),
   });
   try {
@@ -105,17 +117,19 @@ export async function generateUsefulness({ apiKey, fetchImpl, timeoutMs, modelId
   }
 }
 
-export async function generateWorksheet({ apiKey, fetchImpl, timeoutMs, modelId, profile, request, skill, validSkillIds }) {
+export async function generateWorksheet({ apiKey, fetchImpl, timeoutMs, modelId, profile, request, skill }) {
   const completionOptions = {
-    apiKey, fetchImpl, timeoutMs, modelId,
+    apiKey, fetchImpl, timeoutMs, modelId, schemaName: "worksheet", jsonSchema: worksheetJsonSchema,
   };
+  const validSkillIds = worksheetSkillIds(skill);
   const payload = await requestCompletion({ ...completionOptions, messages: worksheetMessages({ profile, request, skill }) });
   try {
     return parseWorksheetResponse(payload, validSkillIds);
-  } catch {
+  } catch (error) {
+    const issues = (error?.issues ?? []).slice(0, 12).map((issue) => `${issue.path.join(".") || "(gyökér)"}: ${issue.message}`);
     const correctedPayload = await requestCompletion({
       ...completionOptions,
-      messages: worksheetCorrectionMessages({ profile, request, skill, invalidResponse: payload }),
+      messages: worksheetCorrectionMessages({ profile, request, skill, invalidResponse: payload, issues }),
     });
     try {
       return parseWorksheetResponse(correctedPayload, validSkillIds);
