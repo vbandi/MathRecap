@@ -40,6 +40,11 @@
   .note { display: block; width: 100%; margin-top: 10px; padding: 7px 10px; resize: vertical; border: 1px solid var(--line); border-radius: var(--radius-sm);
     background: var(--input); color: var(--fg); font: 14px/1.5 var(--font); }
   .note:focus { outline: none; border-color: var(--accent); }
+  .save-state { min-height: 1.4em; margin: 6px 0 0; color: var(--dim); font-size: 12px; }
+  .save-state[data-kind="error"] { color: var(--warn); }
+  .text-button { padding: 0; border: 0; background: none; color: var(--accent); font-size: 12px; font-weight: 600; cursor: pointer; }
+  .text-button:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .load-error { color: var(--warn); }
   @media (max-width: 600px) { main { padding: 0 12px; } .panel { padding: 16px; } .toolbar { top: 52px; } }
 </style>
 </head>

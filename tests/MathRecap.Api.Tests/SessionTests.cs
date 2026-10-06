@@ -9,13 +9,23 @@ namespace MathRecap.Api.Tests;
 public sealed class SessionTests(MathRecapFactory factory) : IClassFixture<MathRecapFactory>
 {
     [Theory]
-    [InlineData("GET", "/api/auth/me")]
     [InlineData("POST", "/api/auth/sign-out")]
-    [InlineData("POST", "/api/worksheets")]
+    [InlineData("GET", "/api/me")]
+    [InlineData("DELETE", "/api/me")]
+    [InlineData("PUT", "/api/me/profile")]
+    [InlineData("PUT", "/api/me/levels")]
+    [InlineData("POST", "/api/me/onboarding-complete")]
+    [InlineData("GET", "/api/me/export")]
     [InlineData("POST", "/api/usefulness")]
+    [InlineData("POST", "/api/worksheets")]
+    [InlineData("GET", "/api/worksheets")]
+    [InlineData("GET", "/api/worksheets/7d6c3b2a-0000-4000-8000-000000000001")]
+    [InlineData("DELETE", "/api/worksheets/7d6c3b2a-0000-4000-8000-000000000001")]
+    [InlineData("GET", "/api/admin/illustration-reviews")]
+    [InlineData("PUT", "/api/admin/illustration-reviews/ALG-08")]
     public async Task ApiCallsWithoutASessionGetJson401(string method, string path)
     {
-        using var request = new HttpRequestMessage(new HttpMethod(method), path) { Content = method == "POST" ? JsonContent.Create(new { }) : null };
+        using var request = new HttpRequestMessage(new HttpMethod(method), path) { Content = method is "POST" or "PUT" ? JsonContent.Create(new { }) : null };
 
         var response = await factory.CreateBrowserClient().SendAsync(request, TestContext.Current.CancellationToken);
 
@@ -60,7 +70,6 @@ public sealed class SessionTests(MathRecapFactory factory) : IClassFixture<MathR
     [Theory]
     [InlineData("/")]
     [InlineData("/worksheet.html?skill=ALG-08")]
-    [InlineData("/review.html")]
     public async Task PagesAreServedWithASession(string path)
     {
         var client = await factory.CreateSignedInClientAsync();

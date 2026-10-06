@@ -156,4 +156,5 @@ async function showDevAccounts() {
   section.hidden = false;
 }
 
+if (new URLSearchParams(window.location.search).has("accountDeleted")) showStatus("A fiókodat és minden adatodat töröltük.");
 showDevAccounts();

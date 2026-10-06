@@ -44,6 +44,14 @@ public sealed class StartupChecksTests
         Assert.Contains("SignIn:CodeHashKey must be configured", error);
     }
 
+    [Fact]
+    public async Task AdminEmailsMustBeEmailAddresses()
+    {
+        var error = await StartupErrorAsync(Environments.Development, new() { ["Admin:Emails:0"] = "admin" });
+
+        Assert.Contains("Every Admin:Emails entry must be a valid email address.", error);
+    }
+
     // The messages of the exception (and its inner exceptions) that stopped the app from starting.
     private static async Task<string> StartupErrorAsync(string environment, Dictionary<string, string?> settings)
     {

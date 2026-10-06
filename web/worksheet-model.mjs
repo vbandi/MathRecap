@@ -21,3 +21,10 @@ export function needsInlineMathSeparator(previousPart, nextPart) {
   const nextValue = nextPart.value.trimStart();
   return Boolean(previousValue && nextValue && !/\s$/.test(previousPart.value) && !/^[.,;:!?)}\]]/.test(nextValue));
 }
+
+// The worksheet page of a skill, opening a saved worksheet when its id is given.
+export function worksheetPageUrl(skillId, worksheetId = null) {
+  const query = new URLSearchParams({ skill: skillId });
+  if (worksheetId) query.set("worksheet", worksheetId);
+  return `worksheet.html?${query}`;
+}

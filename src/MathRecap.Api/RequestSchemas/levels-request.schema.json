@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "properties": {
+    "levels": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0, "maximum": 4 }
+    }
+  },
+  "required": ["levels"],
+  "additionalProperties": false
+}

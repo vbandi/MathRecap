@@ -87,7 +87,7 @@ public sealed class RequestGuardsTests(MathRecapFactory factory) : IClassFixture
     public async Task CrossOriginReadsAreNotBlocked()
     {
         var client = await factory.CreateSignedInClientAsync();
-        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/auth/me");
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/me");
         request.Headers.Add("Origin", "https://attacker.example");
 
         var response = await client.SendAsync(request, TestContext.Current.CancellationToken);

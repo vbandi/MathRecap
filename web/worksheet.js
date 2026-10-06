@@ -1,14 +1,11 @@
 import { findSkill, skills } from "./curriculum.mjs";
 import { renderFigure } from "./figures.js";
 import { illustrations, hasIllustration } from "./illustrations/registry.js";
-import { mountAccountMenu } from "./session.js";
-import { loadLocalState } from "./state.js";
-import { needsInlineMathSeparator, orderedProblemPairs, studentProblems } from "./worksheet-model.mjs";
-
-mountAccountMenu(document.getElementById("account"));
+import { ApiError, api, mountAccountMenu, showNotice } from "./session.js";
+import { loadLearner } from "./state.js";
+import { needsInlineMathSeparator, orderedProblemPairs, studentProblems, worksheetPageUrl } from "./worksheet-model.mjs";
 
 const skill = findSkill(new URLSearchParams(window.location.search).get("skill"));
-const state = loadLocalState(window.localStorage, skills.map(({ id }) => id));
 const context = document.getElementById("skill-context");
 const requestInput = document.getElementById("worksheet-request");
 const generateButton = document.getElementById("generate-button");
@@ -17,7 +14,14 @@ const status = document.getElementById("request-status");
 const workspace = document.getElementById("workspace");
 const worksheetView = document.getElementById("worksheet-view");
 const answersView = document.getElementById("answers-view");
+const historySection = document.getElementById("history");
+const historyList = document.getElementById("history-list");
+const historyStatus = document.getElementById("history-status");
+const dateFormat = new Intl.DateTimeFormat("hu-HU", { dateStyle: "medium", timeStyle: "short" });
+// The shown worksheet's content and its saved record (id, title, request, createdAt).
 let worksheet = null;
+let shownWorksheet = null;
+let savedWorksheets = [];
 
 function text(value) {
   return document.createTextNode(value);
@@ -149,23 +153,144 @@ function setRequestState(nextState, message = "") {
   document.getElementById("new-worksheet").disabled = nextState === "loading";
 }
 
+// Shows a saved worksheet (a POST or GET /api/worksheets answer) and puts its id in the address, so a
+// reload opens it again.
+function showWorksheet(saved, { scroll = false } = {}) {
+  shownWorksheet = saved;
+  worksheet = saved.worksheet;
+  requestInput.value = saved.request;
+  renderWorksheet();
+  renderAnswers();
+  workspace.hidden = false;
+  showView("worksheet");
+  renderHistory();
+  if (scroll) workspace.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function hideWorksheet() {
+  shownWorksheet = null;
+  worksheet = null;
+  workspace.hidden = true;
+  renderHistory();
+}
+
 async function generate() {
   if (!skill) return;
   const request = requestInput.value.trim();
   if (!request) { setRequestState("error", "Írd le röviden, mit gyakorolnál."); return; }
   setRequestState("loading", "Feladatlap készül...");
   try {
-    const response = await fetch("/api/worksheets", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profile: state.profile, request, skillId: skill.id }),
-    });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload?.error?.message || "A feladatlap most nem készült el.");
-    worksheet = payload.worksheet; renderWorksheet(); renderAnswers(); workspace.hidden = false; showView("worksheet"); setRequestState("ready");
+    const saved = await api("POST", "/api/worksheets", { request, skillId: skill.id });
+    savedWorksheets = [saved, ...savedWorksheets];
+    historyStatus.textContent = "";
+    window.history.pushState(null, "", worksheetPageUrl(skill.id, saved.id));
+    showWorksheet(saved);
+    setRequestState("ready");
   } catch (error) {
-    setRequestState("error", error.message || "A feladatlap most nem készült el.");
+    setRequestState("error", error.message);
   }
 }
+
+// Opens the worksheet the address names, if any.
+async function openFromAddress({ scroll = false } = {}) {
+  const id = new URLSearchParams(window.location.search).get("worksheet");
+  if (!id) { hideWorksheet(); return; }
+  if (id === shownWorksheet?.id) return;
+  setRequestState("loading", "Feladatlap betöltése...");
+  try {
+    const saved = await api("GET", `/api/worksheets/${encodeURIComponent(id)}`);
+    if (saved.skillId !== skill.id) throw new ApiError("A feladatlap nem található.", 404);
+    showWorksheet(saved, { scroll });
+    setRequestState("ready");
+  } catch (error) {
+    hideWorksheet();
+    setRequestState("ready", error.status === 404 ? "A feladatlap nem található. Lehet, hogy törölted." : error.message);
+  }
+}
+
+// ---------------------------------------------------------------- korábbi feladatlapok
+
+function renderHistory() {
+  historySection.hidden = savedWorksheets.length === 0 && !historyStatus.textContent;
+  historyList.replaceChildren(...savedWorksheets.map(historyItem));
+}
+
+function historyItem(saved) {
+  const item = element("li", "", "history-item");
+  const link = element("a", saved.title, "history-title");
+  link.href = worksheetPageUrl(skill.id, saved.id);
+  if (saved.id === shownWorksheet?.id) link.setAttribute("aria-current", "page");
+  link.addEventListener("click", (event) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    window.history.pushState(null, "", link.href);
+    openFromAddress({ scroll: true });
+  });
+  const created = element("time", dateFormat.format(new Date(saved.createdAt)));
+  created.dateTime = saved.createdAt;
+  const meta = element("p", "", "history-meta");
+  meta.append(created, text(` · ${saved.request}`));
+  const remove = element("button", "Törlés", "btn ghost history-delete");
+  remove.type = "button";
+  remove.setAttribute("aria-label", `Feladatlap törlése: ${saved.title}`);
+  remove.addEventListener("click", () => confirmDeletion(item, saved, remove));
+  item.append(link, meta, remove);
+  return item;
+}
+
+// Asks in the list item itself before deleting.
+function confirmDeletion(item, saved, trigger) {
+  const question = element("div", "", "history-confirm");
+  question.setAttribute("role", "group");
+  question.setAttribute("aria-label", `Törlöd ezt a feladatlapot: ${saved.title}?`);
+  const prompt = element("span", "Biztosan törlöd? A törlés végleges.");
+  const confirm = element("button", "Igen, törlöm", "btn danger");
+  const cancel = element("button", "Mégse", "btn ghost");
+  confirm.type = cancel.type = "button";
+  const error = element("span", "", "form-error");
+  error.setAttribute("role", "alert");
+  question.append(prompt, confirm, cancel, error);
+  trigger.replaceWith(question);
+  cancel.focus();
+  cancel.addEventListener("click", () => {
+    question.replaceWith(trigger);
+    trigger.focus();
+  });
+  confirm.addEventListener("click", async () => {
+    confirm.disabled = cancel.disabled = true;
+    try {
+      await api("DELETE", `/api/worksheets/${encodeURIComponent(saved.id)}`);
+    } catch (failure) {
+      // Already deleted (for example, in another tab): the list follows the server.
+      if (failure.status !== 404) {
+        error.textContent = `A törlés nem sikerült: ${failure.message}`;
+        confirm.disabled = cancel.disabled = false;
+        return;
+      }
+    }
+    savedWorksheets = savedWorksheets.filter((entry) => entry.id !== saved.id);
+    historyStatus.textContent = `Törölve: ${saved.title}`;
+    if (shownWorksheet?.id === saved.id) {
+      window.history.replaceState(null, "", worksheetPageUrl(skill.id));
+      hideWorksheet();
+    } else {
+      renderHistory();
+    }
+    (historyList.querySelector("a") ?? requestInput).focus();
+  });
+}
+
+async function loadHistory() {
+  try {
+    savedWorksheets = (await api("GET", `/api/worksheets?skillId=${encodeURIComponent(skill.id)}`)).worksheets;
+    renderHistory();
+  } catch (error) {
+    historyStatus.textContent = `A korábbi feladatlapjaidat most nem sikerült betölteni. ${error.message}`;
+    renderHistory();
+  }
+}
+
+// ---------------------------------------------------------------- indulás
 
 if (!skill) {
   context.textContent = "A kiválasztott készség nem található. Térj vissza a fához, és válassz egy csomópontot.";
@@ -201,3 +326,12 @@ document.querySelectorAll("[data-print]").forEach((button) => button.addEventLis
   window.print();
 }));
 document.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => showView(button.dataset.view)));
+window.addEventListener("popstate", () => openFromAddress());
+
+loadLearner(skills.map(({ id }) => id))
+  .then((learner) => mountAccountMenu(document.getElementById("account"), learner))
+  .catch((error) => showNotice(`A fiókod adatait most nem sikerült betölteni. ${error.message}`));
+if (skill) {
+  loadHistory();
+  openFromAddress();
+}

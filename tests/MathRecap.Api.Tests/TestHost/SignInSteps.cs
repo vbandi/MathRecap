@@ -18,7 +18,7 @@ public static partial class SignInSteps
     public static Task<HttpResponseMessage> VerifyLinkAsync(this HttpClient client, string token) =>
         client.PostAsJsonAsync("/api/auth/verify-link", new { token }, TestContext.Current.CancellationToken);
 
-    public static Task<HttpResponseMessage> MeAsync(this HttpClient client) => client.GetAsync("/api/auth/me", TestContext.Current.CancellationToken);
+    public static Task<HttpResponseMessage> MeAsync(this HttpClient client) => client.GetAsync("/api/me", TestContext.Current.CancellationToken);
 
     public static OutboxMessage LatestEmailTo(this MathRecapFactory factory, string email) =>
         factory.Outbox.Messages.First(message => message.To == email);
@@ -26,6 +26,15 @@ public static partial class SignInSteps
     public static string CodeOf(OutboxMessage message) => Code().Match(message.Subject).Groups[1].Value;
 
     public static string LinkTokenOf(OutboxMessage message) => LinkToken().Match(message.Body).Groups[1].Value;
+
+    // A browser client signed in as a new learner of its own, so that tests sharing the database do not
+    // see each other's data.
+    public static async Task<HttpClient> CreateLearnerClientAsync(this MathRecapFactory factory, string? email = null)
+    {
+        var client = factory.CreateBrowserClient();
+        await factory.SignInWithCodeAsync(client, email ?? NewEmail());
+        return client;
+    }
 
     // Requests an email and signs in with its code.
     public static async Task SignInWithCodeAsync(this MathRecapFactory factory, HttpClient client, string email)

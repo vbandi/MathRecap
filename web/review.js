@@ -1,11 +1,9 @@
-// Review checklist for the skill illustrations. Flags were collected from the authoring
-// agents' reports and the integration pass; review state lives in localStorage.
+// Review checklist for the skill illustrations, for admins. Flags were collected from the authoring
+// agents' reports and the integration pass; the review state is shared by the admins on the server.
 import { skills } from "./curriculum.mjs";
-import { mountAccountMenu } from "./session.js";
+import { api, mountAccountMenu, showNotice } from "./session.js";
+import { loadLearner } from "./state.js";
 
-mountAccountMenu(document.getElementById("account"));
-
-const STORAGE_KEY = "mathrecap.illustrationReview.v1";
 const BRANCHES = { LOG: "Logika", SZA: "Számok", ALG: "Algebra", FUG: "Függvények", GEO: "Geometria", ESE: "Esély" };
 const FLAG_TYPES = { wording: "Nyelv", math: "Matek", check: "Nem ellenőrzött", ux: "Felület" };
 const STATUSES = { todo: "Átnézendő", ok: "Rendben", fix: "Javítandó" };
@@ -141,14 +139,6 @@ const FLAGS = {
   "ESE-28": [["wording", "A találkozási feladat megfogalmazása („legfeljebb ennyit vár a másikra”)."]],
 };
 
-function loadReview() {
-  try { return JSON.parse(window.localStorage.getItem(STORAGE_KEY)) ?? {}; } catch { return {}; }
-}
-
-function saveReview(review) {
-  try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(review)); } catch { /* private mode: keep in memory */ }
-}
-
 function element(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -156,12 +146,20 @@ function element(tag, className, text) {
   return node;
 }
 
+const NOTE_SAVE_DELAY_MS = 800;
 const nodes = skills;
 const nameOf = new Map(nodes.map((node) => [node.id, node.name]));
-const review = loadReview();
 const filters = { flaggedOnly: false, status: "all" };
 const list = document.getElementById("review-list");
 const summary = document.getElementById("review-summary");
+const dateFormat = new Intl.DateTimeFormat("hu-HU", { dateStyle: "medium", timeStyle: "short" });
+// Skill ID -> { status, note, updatedAt, updatedBy }, as saved or as being edited.
+let review = {};
+// Skills with changes the server does not have yet, and how their saving goes.
+const unsaved = new Set();
+const saveStates = new Map();
+const saveTimers = new Map();
+const saveQueues = new Map();
 
 const entryOf = (id) => review[id] ?? { status: "todo", note: "" };
 const pageUrl = (id) => `worksheet.html?skill=${encodeURIComponent(id)}`;
@@ -232,17 +230,69 @@ function renderSkill(node) {
   }
   const note = element("textarea", "note");
   note.placeholder = "Megjegyzés (pl. mit kell javítani)…";
+  note.setAttribute("aria-label", `Megjegyzés: ${node.id} ${node.name}`);
   note.value = entry.note;
   note.rows = entry.note ? 3 : 1;
-  note.addEventListener("input", () => update(node.id, { note: note.value }));
-  row.append(note);
+  note.addEventListener("input", () => update(node.id, { note: note.value }, NOTE_SAVE_DELAY_MS));
+  const saveState = element("p", "save-state");
+  saveState.dataset.skillId = node.id;
+  saveState.setAttribute("aria-live", "polite");
+  row.append(note, saveState);
+  renderSaveState(node.id, saveState);
   return row;
 }
 
-function update(id, changes) {
+// The save state of a skill, or who changed it last.
+function renderSaveState(id, target = list.querySelector(`.save-state[data-skill-id="${id}"]`)) {
+  if (!target) return;
+  const state = saveStates.get(id);
+  const entry = entryOf(id);
+  target.dataset.kind = state?.kind ?? "";
+  target.replaceChildren(state?.text ?? (entry.updatedAt ? `Utoljára módosította: ${entry.updatedBy ?? "törölt fiók"} · ${dateFormat.format(new Date(entry.updatedAt))}` : ""));
+  if (state?.kind === "error") {
+    const retry = element("button", "text-button", "Próbáld újra");
+    retry.type = "button";
+    retry.addEventListener("click", () => save(id));
+    target.append(" ", retry);
+  }
+}
+
+function setSaveState(id, text, kind) {
+  saveStates.set(id, { text, kind });
+  renderSaveState(id);
+}
+
+// Shows the change at once and saves it after `delay` ms (notes are saved when typing pauses).
+function update(id, changes, delay = 0) {
   review[id] = { ...entryOf(id), ...changes };
-  saveReview(review);
+  unsaved.add(id);
   renderSummary();
+  clearTimeout(saveTimers.get(id));
+  saveTimers.set(id, setTimeout(() => save(id), delay));
+}
+
+// One request per skill at a time; each sends the skill's latest entry.
+function save(id) {
+  clearTimeout(saveTimers.get(id));
+  saveTimers.delete(id);
+  saveQueues.set(id, (saveQueues.get(id) ?? Promise.resolve()).then(() => send(id)));
+}
+
+// The skill stays unsaved when it was edited while its request was on the way (update() replaces the
+// entry); that edit is saved next.
+async function send(id) {
+  if (!unsaved.has(id)) return;
+  const entry = entryOf(id);
+  setSaveState(id, "Mentés…", "saving");
+  try {
+    const saved = await api("PUT", `/api/admin/illustration-reviews/${encodeURIComponent(id)}`, { status: entry.status, note: entry.note });
+    if (entryOf(id) === entry) unsaved.delete(id);
+    review[id] = { ...entryOf(id), updatedAt: saved.updatedAt, updatedBy: saved.updatedBy };
+    saveStates.delete(id);
+    renderSaveState(id);
+  } catch (error) {
+    setSaveState(id, `Nem sikerült menteni: ${error.message}`, "error");
+  }
 }
 
 function exportMarkdown() {
@@ -273,5 +323,18 @@ document.getElementById("export-download").addEventListener("click", () => {
   URL.revokeObjectURL(link.href);
 });
 
+// Unsaved changes (still waiting, being sent or failed) are not left behind silently.
+window.addEventListener("beforeunload", (event) => {
+  if (unsaved.size) event.preventDefault();
+});
+
 renderQuestions();
-renderList();
+loadLearner(nodes.map((node) => node.id))
+  .then((learner) => mountAccountMenu(document.getElementById("account"), learner))
+  .catch((error) => showNotice(`A fiókod adatait most nem sikerült betölteni. ${error.message}`));
+try {
+  review = (await api("GET", "/api/admin/illustration-reviews")).reviews;
+  renderList();
+} catch (error) {
+  list.replaceChildren(element("p", "load-error", `Az átnézés állapotát most nem sikerült betölteni. ${error.message} Frissítsd az oldalt egy kicsit később.`));
+}

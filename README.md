@@ -4,7 +4,7 @@ MathRecap is an interactive skill tree for the Hungarian secondary-school mathem
 
 The interface and curriculum content are currently in Hungarian. Learners set their own mastery level, inspect prerequisites and follow-up topics, and can create printable AI-assisted practice worksheets when an OpenRouter API key is configured on the local server. Generated examples can follow the learner's stated interests, making practice more personally relevant.
 
-**Current scope:** Learners sign in with a passwordless email code or link; accounts live in a SQL Server database. Mastery levels, learner profile, and interests are still stored in the user's browser (they move to the server in a later phase). The AI model is chosen in the server configuration.
+**Current scope:** Learners sign in with a passwordless email code or link. Everything a learner does (mastery levels, profile and interests, the "why it is useful" texts, generated worksheets) is stored per account in a SQL Server database; the browser keeps no learner data. Learners can download all their data and delete their account. The AI model is chosen in the server configuration.
 
 ## Screenshots
 
@@ -31,7 +31,7 @@ később válik egy 12. osztályos készség előfeltételévé.
 
 ## Helyi futtatás
 
-**Követelmény:** .NET 10 SDK, Node.js 24 és SQL Server LocalDB (a Visual Studio vagy az SQL Server Express telepítője hozza). A projekt saját, `MathRecap` nevű LocalDB-példányt használ, amelyet egyszer létre kell hozni: `sqllocaldb create MathRecap -s`. A Node csak a KaTeX-csomag telepítéséhez, a böngészős modulok tesztjeihez és a tantervi adatok újraépítéséhez kell. A fiókok az adatbázisban vannak; a tudásszintek, a profil és az érdeklődési körök egyelőre a böngésző `localStorage` tárában maradnak.
+**Követelmény:** .NET 10 SDK, Node.js 24 és SQL Server LocalDB (a Visual Studio vagy az SQL Server Express telepítője hozza). A projekt saját, `MathRecap` nevű LocalDB-példányt használ, amelyet egyszer létre kell hozni: `sqllocaldb create MathRecap -s`. A Node csak a KaTeX-csomag telepítéséhez, a böngészős modulok tesztjeihez és a tantervi adatok újraépítéséhez kell. Minden tanulói adat (fiók, profil, tudásszintek, indoklások, feladatlapok) az adatbázisban van, fiókonként; a böngésző nem tárol tanulói adatot.
 
 ```powershell
 npm ci
@@ -67,7 +67,7 @@ A saját példány azért kell, mert a gépenként közös `MSSQLLocalDB` péld�
 
 ### Belépés
 
-Jelszó nincs. A belépési oldalon (`/sign-in.html`) a tanuló megadja az e-mail-címét, és kap egy levelet egy 6 jegyű kóddal és egy belépési linkkel; bármelyikkel beléphet. Mindkettő 10 percig érvényes és egyszer használható; új kód kérése a korábbit érvényteleníti, öt hibás kód után új kódot kell kérni. Regisztráció nincs külön: az első sikeres belépés hozza létre a fiókot. A link egy megerősítő oldalra visz, ahol a **Belépés** gombbal lehet belépni (a link megnyitása önmagában nem léptet be, így a levelezők linkellenőrzése nem használhatja el). A munkamenet 30 napig él, használat közben megújul; a fejlécben látszik a belépett cím és a **Kijelentkezés** gomb. Az oldalak (fa, feladatlap, átnézés) munkamenet nélkül a belépési oldalra irányítanak, majd belépés után vissza.
+Jelszó nincs. A belépési oldalon (`/sign-in.html`) a tanuló megadja az e-mail-címét, és kap egy levelet egy 6 jegyű kóddal és egy belépési linkkel; bármelyikkel beléphet. Mindkettő 10 percig érvényes és egyszer használható; új kód kérése a korábbit érvényteleníti, öt hibás kód után új kódot kell kérni. Regisztráció nincs külön: az első sikeres belépés hozza létre a fiókot. A link egy megerősítő oldalra visz, ahol a **Belépés** gombbal lehet belépni (a link megnyitása önmagában nem léptet be, így a levelezők linkellenőrzése nem használhatja el). A munkamenet 30 napig él, használat közben megújul. A fejléc fiókmenüjében (a belépett cím) van az **Adataim letöltése**, a **Fiók törlése** és a **Kijelentkezés**, adminisztrátoroknak az **Átnézés** is. Az oldalak (fa, feladatlap, átnézés) munkamenet nélkül a belépési oldalra irányítanak, majd belépés után vissza.
 
 Helyi teszteléshez, e-mail-fiók nélkül:
 
@@ -86,11 +86,22 @@ Beállítások (Development-értékek az `appsettings.Development.json`-ban):
 | `RateLimits:SignInPerMinute`, `SignInPerHour` | belépési levélkérések IP-címenként (alapból 5/perc, 30/óra) |
 | `RateLimits:VerifyPerMinute` | kód- és linkellenőrzések IP-címenként (alapból 20/perc) |
 | `RateLimits:SignInPerEmailPerHour` | belépési levelek címenként (alapból 5/óra) |
+| `Admin:Emails` | az adminisztrátorok e-mail-címei (Development: `admin@mathrecap.local`) |
 | `DevOutbox:Enabled`, `DevAccounts:Enabled`, `DevAccounts:Accounts` | a fejlesztői eszközök (csak Developmentben) |
 
 ### Feladatlap és nyomtatás
 
-Egy készség paneljének **Gyakorlás** gombja külön feladatlap-oldalt nyit. Egyetlen szabad szöveges kérésben lehet megadni a gyakorlás fókuszát; a generált példák a tanuló megadott érdeklődési köreihez is igazodhatnak. Az **Új feladatlap** új generálást indít, nem fűzi hozzá a korábbihoz. A **Feladatlap** és **Megoldókulcs** külön nézet, mindkettőnek saját nyomtatás gombja van. Nyomtatás előtt válaszd ki a kívánt nézetet; a nyomtatási stílus elrejti az alkalmazás vezérlőit. Generált feladatlap-előzmény nincs, és feladatmegoldás sem módosítja automatikusan a tudásszintet.
+Egy készség paneljének **Gyakorlás** gombja külön feladatlap-oldalt nyit. Egyetlen szabad szöveges kérésben lehet megadni a gyakorlás fókuszát; a generált példák a tanuló megadott érdeklődési köreihez is igazodhatnak. Az **Új feladatlap** új generálást indít, nem fűzi hozzá a korábbihoz. A **Feladatlap** és **Megoldókulcs** külön nézet, mindkettőnek saját nyomtatás gombja van. Nyomtatás előtt válaszd ki a kívánt nézetet; a nyomtatási stílus elrejti az alkalmazás vezérlőit. A feladatmegoldás nem módosítja automatikusan a tudásszintet.
+
+Minden elkészült feladatlap a tanuló fiókjába mentődik. A feladatlap-oldal **Korábbi feladatlapjaid** listája az adott készség mentett lapjait mutatja (cím, dátum, kérés, a legújabb elöl); egy lap megnyitható (`worksheet.html?skill=<készség>&worksheet=<azonosító>`, újratöltés után is), ugyanúgy nyomtatható, és megerősítés után törölhető.
+
+### Adatok, fiók és átnézés
+
+A kiszolgáló fiókonként tárolja a profilt, az onboarding befejezését, a tudásszinteket (csak a 0-nál nagyobbakat), a „Miért jó neked” szövegeket (készségenként a legutóbbit, azzal a profillal együtt, amelyhez készült: a profil megváltozása után kéréskor új készül) és a feladatlapokat. Egy tanuló más tanuló adatát nem látja és nem módosíthatja; más feladatlapjára a válasz „nem található”. A korábbi verziók böngészőben tárolt adatait (`mathrecap.local-state`, `mathrecap.illustrationReview.v1`) az alkalmazás nem veszi át, csak törli.
+
+Az **Adataim letöltése** minden tanulói adatot egy JSON-fájlban ad (`mathrecap-adataim-<dátum>.json`). A **Fiók törlése** megerősítés után a fiókot és minden hozzá tartozó adatot töröl (a belépési kódokat is), és minden munkamenetét lezárja.
+
+Az illusztrációk átnézése (`review.html`) az adminisztrátoroké: azoké a belépett felhasználóké, akiknek a címe szerepel az `Admin:Emails` listában. Az átnézés állapota (készségenként állapot és megjegyzés, ki és mikor módosította) közös, a kiszolgálón van. Más felhasználónak az oldal „nincs hozzáférés” oldalt (403), az API 403-at ad.
 
 ### Biztonsági határ
 

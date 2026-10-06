@@ -2,7 +2,6 @@ using System.Security.Claims;
 using MathRecap.Api.Data;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace MathRecap.Api.Accounts;
@@ -42,13 +41,25 @@ public sealed class UserAccounts(AppDbContext db, TimeProvider time, ILogger<Use
         {
             await db.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateException error) when (error.InnerException is SqlException { Number: 2601 or 2627 })
+        catch (DbUpdateException error) when (Database.IsUniqueViolation(error))
         {
             db.Entry(user).State = EntityState.Detached;
             return null;
         }
         logger.LogInformation("User {UserId} signed up.", user.Id);
         return user;
+    }
+
+    // Deletes the user with everything of theirs (see AppDbContext) and their sign-in challenges, and
+    // ends this session. Their other sessions end with the user.
+    public async Task DeleteAsync(HttpContext context, CancellationToken cancellationToken)
+    {
+        var userId = UserIdOf(context.User);
+        var email = await db.Users.Where(user => user.Id == userId).Select(user => user.NormalizedEmail).SingleAsync(cancellationToken);
+        await db.SignInChallenges.Where(challenge => challenge.NormalizedEmail == email).ExecuteDeleteAsync(cancellationToken);
+        await db.Users.Where(user => user.Id == userId).ExecuteDeleteAsync(cancellationToken);
+        await context.SignOutAsync();
+        logger.LogInformation("User {UserId} deleted their account.", userId);
     }
 
     public static Guid UserIdOf(ClaimsPrincipal principal) => Guid.Parse(principal.FindFirstValue(ClaimTypes.NameIdentifier)!);

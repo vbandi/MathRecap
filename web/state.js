@@ -1,118 +1,102 @@
-export const LOCAL_STATE_KEY = "mathrecap.local-state";
-export const LOCAL_STATE_VERSION = 3;
+// The signed-in learner's state, which lives on the server: loaded once from GET /api/me and changed
+// through the /api/me endpoints. The browser keeps none of it.
+import { api } from "./session.js";
 
-const EMPTY_PROFILE = Object.freeze({ interests: "", background: "", goal: "" });
-// Storage keys written by versions before 3 used Hungarian names.
-const LEGACY_PROFILE_KEYS = Object.freeze({ interests: "erdeklodes", background: "sajat", goal: "cel" });
+export const MAX_LEVEL = 4;
 
-function masteryFor(skillIds, source = {}) {
-  return Object.fromEntries(skillIds.map((id) => [id, Number.isInteger(source[id]) && source[id] >= 0 && source[id] <= 4 ? source[id] : 0]));
-}
+// Browser storage keys of the versions that kept learner data in the browser. That data is not
+// imported; the keys are only removed.
+export const LEGACY_STORAGE_KEYS = Object.freeze(["mathrecap.local-state", "mathrecap.illustrationReview.v1"]);
 
-function profileFor(source = {}) {
-  return Object.fromEntries(Object.keys(EMPTY_PROFILE).map((key) => [key, typeof source[key] === "string" ? source[key] : ""]));
-}
-
-function usefulnessCacheFor(source = {}) {
-  if (!source || typeof source !== "object" || Array.isArray(source)) return {};
-  return Object.fromEntries(Object.entries(source).flatMap(([skillId, entry]) => (
-    entry && typeof entry === "object" && !Array.isArray(entry)
-      && typeof entry.text === "string" && typeof entry.fingerprint === "string"
-      ? [[skillId, { text: entry.text, fingerprint: entry.fingerprint }]] : []
-  )));
-}
-
-export function usefulnessFingerprint(profile) {
-  return JSON.stringify({
-    interests: profile?.interests ?? "",
-    background: profile?.background ?? "",
-    goal: profile?.goal ?? "",
-  });
-}
-
-export function usefulnessDisplayState(state, skillId, refreshFailed = false) {
-  const cached = state?.usefulnessCache?.[skillId];
-  const isCurrent = cached?.fingerprint === usefulnessFingerprint(state?.profile);
-  return {
-    text: isCurrent ? cached.text : null,
-    refreshFailed: Boolean(isCurrent && refreshFailed),
-  };
-}
-
-export function emptyLocalState(skillIds) {
-  return {
-    version: LOCAL_STATE_VERSION,
-    mastery: masteryFor(skillIds),
-    profile: profileFor(),
-    onboardingComplete: false,
-    usefulnessCache: {},
-  };
-}
-
-function upgradeLegacyPayload(payload) {
-  if (typeof payload.version === "number" && payload.version >= LOCAL_STATE_VERSION) return payload;
-  const profile = payload.profile && typeof payload.profile === "object" ? payload.profile : {};
-  return {
-    ...payload,
-    mastery: payload.mastery ?? payload.szintek,
-    profile: Object.fromEntries(Object.entries(LEGACY_PROFILE_KEYS).map(([key, legacyKey]) => [key, profile[key] ?? profile[legacyKey]])),
-  };
-}
-
-function migrateLocalState(payload, skillIds) {
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return emptyLocalState(skillIds);
-  const source = upgradeLegacyPayload(payload);
-  return {
-    version: LOCAL_STATE_VERSION,
-    mastery: masteryFor(skillIds, source.mastery),
-    profile: profileFor(source.profile),
-    onboardingComplete: source.onboardingComplete === true,
-    usefulnessCache: usefulnessCacheFor(source.usefulnessCache),
-  };
-}
-
-export function loadLocalState(storage, skillIds) {
+export function removeLegacyStorage(getStorage) {
   try {
-    const raw = storage?.getItem(LOCAL_STATE_KEY);
-    return migrateLocalState(raw ? JSON.parse(raw) : null, skillIds);
+    const storage = getStorage();
+    for (const key of LEGACY_STORAGE_KEYS) storage?.removeItem(key);
   } catch {
-    return emptyLocalState(skillIds);
+    // Storage can be unavailable (for example, blocked by the browser); then there is nothing to remove.
   }
 }
 
-export function saveLocalState(storage, state, skillIds) {
-  const normalized = migrateLocalState(state, skillIds);
-  try {
-    storage?.setItem(LOCAL_STATE_KEY, JSON.stringify(normalized));
-  } catch {
-    // Local persistence can be unavailable (for example, private browser storage).
+// The learner from GET /api/me, with `mastery`: a level for every skill (0 for the ones without one).
+export async function loadLearner(skillIds) {
+  removeLegacyStorage(() => window.localStorage);
+  const me = await api("GET", "/api/me");
+  return { ...me, mastery: masteryFrom(skillIds, me.levels) };
+}
+
+export function sameProfile(first, second) {
+  return ["interests", "background", "goal"].every((key) => first[key] === second[key]);
+}
+
+export function saveProfile(profile) {
+  return api("PUT", "/api/me/profile", profile);
+}
+
+export function completeOnboarding() {
+  return api("POST", "/api/me/onboarding-complete");
+}
+
+// The "why it is useful for you" text: the stored one unless `refresh`, otherwise a new one.
+export async function requestUsefulness(skillId, refresh = false) {
+  return (await api("POST", "/api/usefulness", { skillId, refresh })).usefulness.text;
+}
+
+// Sends level changes; keepalive lets the last ones reach the server while the page is left.
+export function saveLevels(levels) {
+  return api("PUT", "/api/me/levels", { levels }, { keepalive: true });
+}
+
+export function masteryFrom(skillIds, levels = {}) {
+  return Object.fromEntries(skillIds.map((id) => [id, Number.isInteger(levels[id]) && levels[id] >= 0 && levels[id] <= MAX_LEVEL ? levels[id] : 0]));
+}
+
+// The skills whose level differs, with their level in `after`.
+export function levelChanges(before, after) {
+  return Object.fromEntries(Object.entries(after).filter(([id, level]) => (before[id] ?? 0) !== level));
+}
+
+// Keeps the levels the learner sees and saves their changes: the changes made within `delay` ms go out
+// in one request, one request at a time. When a save fails, every unsaved change is undone and
+// onRevert(levels, error) reports it, so nothing is lost silently.
+export function createLevelSaver({ levels, save, onRevert, delay = 400 }) {
+  let current = { ...levels };
+  let saved = { ...levels };
+  let timer = null;
+  let queue = Promise.resolve(true);
+
+  async function send() {
+    const changes = levelChanges(saved, current);
+    if (!Object.keys(changes).length) return true;
+    try {
+      await save(changes);
+      saved = { ...saved, ...changes };
+      return true;
+    } catch (error) {
+      current = { ...saved };
+      onRevert({ ...current }, error);
+      return false;
+    }
   }
-  return normalized;
-}
 
-export function setManualMastery(state, skillIds, skillId, level) {
-  if (!skillIds.includes(skillId) || !Number.isInteger(level) || level < 0 || level > 4) return state;
-  return { ...state, mastery: { ...state.mastery, [skillId]: level } };
-}
+  // Saves the pending changes now; resolves to false when the save failed.
+  function flush() {
+    clearTimeout(timer);
+    timer = null;
+    queue = queue.then(send);
+    return queue;
+  }
 
-export function updateProfile(state, profile) {
-  const nextProfile = profileFor(profile);
-  const changed = usefulnessFingerprint(state.profile) !== usefulnessFingerprint(nextProfile);
   return {
-    ...state,
-    profile: nextProfile,
-    usefulnessCache: changed ? {} : state.usefulnessCache,
-  };
-}
-
-export function cacheUsefulness(state, skillId, text) {
-  if (typeof skillId !== "string" || typeof text !== "string" || !text.trim()) return state;
-  return {
-    ...state,
-    usefulnessCache: {
-      ...state.usefulnessCache,
-      [skillId]: { text: text.trim(), fingerprint: usefulnessFingerprint(state.profile) },
+    get levels() {
+      return { ...current };
     },
+    hasUnsavedChanges: () => Object.keys(levelChanges(saved, current)).length > 0,
+    set(changes) {
+      current = { ...current, ...changes };
+      clearTimeout(timer);
+      timer = setTimeout(flush, delay);
+    },
+    flush,
   };
 }
 
@@ -129,14 +113,10 @@ export function calibrationProposal(nodes, mastery, selectedSkillIds) {
     }
   };
   for (const skillId of selected) {
-    proposed[skillId] = 4;
+    proposed[skillId] = MAX_LEVEL;
     visitPrerequisites(skillId);
   }
   return proposed;
-}
-
-export function undoCalibrationProposal(state, baselineMastery) {
-  return { ...state, mastery: { ...baselineMastery } };
 }
 
 export function recomputeLocks(nodes, mastery) {

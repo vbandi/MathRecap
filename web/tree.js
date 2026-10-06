@@ -1,10 +1,8 @@
 "use strict";
 
 import { dependentsOf, skills } from "./curriculum.mjs";
-import { mountAccountMenu } from "./session.js";
-import { cacheUsefulness, calibrationProposal, loadLocalState, recomputeLocks, saveLocalState, setManualMastery, undoCalibrationProposal, updateProfile, usefulnessDisplayState } from "./state.js";
-
-mountAccountMenu(document.getElementById("account"));
+import { mountAccountMenu, showNotice } from "./session.js";
+import { calibrationProposal, completeOnboarding, createLevelSaver, levelChanges, loadLearner, recomputeLocks, requestUsefulness, sameProfile, saveLevels, saveProfile } from "./state.js";
 
 const BRANCHES = {
   LOG: { name: "Logika", color: "#6C5CE7", darkText: false },
@@ -120,20 +118,37 @@ for (const n of nodes) {
 // ---------------------------------------------------------------- kezdőállapot
 
 const skillIds = nodes.map((node) => node.id);
-let localState = loadLocalState(window.localStorage, skillIds);
-
-function persistLocalState() {
-  localState = saveLocalState(window.localStorage, localState, skillIds);
-}
+const learner = await loadLearner(skillIds).catch((error) => {
+  const message = document.createElement("div");
+  message.className = "load-error";
+  message.setAttribute("role", "alert");
+  message.textContent = `Nem sikerült betölteni az adataidat. ${error.message} Frissítsd az oldalt egy kicsit később.`;
+  document.getElementById("stage").replaceChildren(message);
+  throw error;
+});
+mountAccountMenu(document.getElementById("account"), learner);
+// The learner's levels: manual changes are saved in batches; a failed save restores the saved levels.
+const levelSaver = createLevelSaver({
+  levels: learner.mastery,
+  save: saveLevels,
+  onRevert: (_levels, error) => {
+    refreshLocks();
+    renderPanel();
+    draw();
+    showNotice(`A tudásszint mentése nem sikerült, ezért visszaállt a korábbi érték. ${error.message}`);
+  },
+});
+// "Why it is useful for you" texts shown in this visit, by skill ID.
+const usefulnessTexts = new Map();
 
 function refreshLocks() {
-  const locks = recomputeLocks(nodes, localState.mastery);
+  const mastery = levelSaver.levels;
+  const locks = recomputeLocks(nodes, mastery);
   for (const n of nodes) {
-    n.mastery = localState.mastery[n.id];
+    n.mastery = mastery[n.id];
     n.locked = locks[n.id];
   }
 }
-persistLocalState();
 refreshLocks();
 
 // ---------------------------------------------------------------- vászon
@@ -614,11 +629,11 @@ function renderPanel() {
   const n = selected;
   if (!n) return;
   const missing = n.prerequisites.filter((p) => byId.get(p).locked || byId.get(p).mastery < 2);
-  const usefulnessState = usefulnessDisplayState(localState, n.id, usefulnessRefreshFailedSkillId === n.id);
-  const usefulness = usefulnessState.text
-    ? `<div class="usefulness-text">${esc(usefulnessState.text)}</div>${usefulnessState.refreshFailed ? '<div class="usefulness-error" role="alert">Nem sikerült frissíteni az indoklást. <button class="text-button" data-act="usefulness-retry">Próbáld újra</button></div>' : ""}<button class="text-button" data-act="usefulness">Mást kérek</button>`
+  const usefulnessText = usefulnessTexts.get(n.id);
+  const usefulness = usefulnessText
+    ? `<div class="usefulness-text">${esc(usefulnessText)}</div>${usefulnessRefreshFailedSkillId === n.id ? '<div class="usefulness-error" role="alert">Nem sikerült frissíteni az indoklást. <button class="text-button" data-act="usefulness-refresh">Próbáld újra</button></div>' : ""}<button class="text-button" data-act="usefulness-refresh">Mást kérek</button>`
     : usefulnessFallbackSkillId === n.id
-      ? `<div class="usefulness-error" role="alert">Most nem sikerült valós példát készíteni ehhez a készséghez. <button class="text-button" data-act="usefulness-retry">Próbáld újra</button></div>`
+      ? `<div class="usefulness-error" role="alert">Most nem sikerült valós példát készíteni ehhez a készséghez. <button class="text-button" data-act="usefulness">Próbáld újra</button></div>`
     : `<em>Kérhetsz rövid, személyre szabott indoklást.</em><button class="text-button" data-act="usefulness">Miért jó nekem?</button>`;
   panelBody.innerHTML = `
     <h2>${esc(n.name)}</h2>
@@ -650,12 +665,12 @@ function renderPanel() {
 }
 
 panelBody.addEventListener("click", (e) => {
+  if (!selected) return;
   const dep = e.target.closest("[data-goto]");
   if (dep) { const n = byId.get(dep.dataset.goto); selectNode(n); flyTo(n); return; }
   const lvl = e.target.closest("[data-lvl]");
   if (lvl) {
-    localState = setManualMastery(localState, skillIds, selected.id, +lvl.dataset.lvl);
-    localState = saveLocalState(window.localStorage, localState, skillIds);
+    levelSaver.set({ [selected.id]: +lvl.dataset.lvl });
     refreshLocks();
     renderPanel();
     draw();
@@ -664,25 +679,20 @@ panelBody.addEventListener("click", (e) => {
   const act = e.target.closest("[data-act]");
   if (act?.dataset.act === "path") learningPath(selected);
   if (act?.dataset.act === "practice") window.location.assign(`worksheet.html?skill=${encodeURIComponent(selected.id)}`);
-  if (act?.dataset.act === "usefulness" || act?.dataset.act === "usefulness-retry") generateUsefulness(selected);
+  if (act?.dataset.act === "usefulness") showUsefulness(selected, { refresh: false });
+  if (act?.dataset.act === "usefulness-refresh") showUsefulness(selected, { refresh: true });
 });
 
-async function generateUsefulness(skill) {
+// The stored text comes back at once; a new one is written when there is none for the current profile
+// or the learner asks for another.
+async function showUsefulness(skill, { refresh }) {
   usefulnessFallbackSkillId = null;
   usefulnessRefreshFailedSkillId = null;
   panelBody.querySelector(".ai").innerHTML = `<div class="lbl">Miért jó neked</div><em>Indoklás készül…</em>`;
   try {
-    const response = await fetch("/api/usefulness", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profile: localState.profile, skillId: skill.id }),
-    });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload?.error?.message || "Az indoklás most nem érhető el.");
-    localState = cacheUsefulness(localState, skill.id, payload.usefulness.text);
-    persistLocalState();
+    usefulnessTexts.set(skill.id, await requestUsefulness(skill.id, refresh));
   } catch {
-    if (usefulnessDisplayState(localState, skill.id).text) usefulnessRefreshFailedSkillId = skill.id;
+    if (usefulnessTexts.has(skill.id)) usefulnessRefreshFailedSkillId = skill.id;
     else usefulnessFallbackSkillId = skill.id;
   }
   if (selected?.id === skill.id) renderPanel();
@@ -727,7 +737,7 @@ function profileFrom(container) {
 }
 
 function openOnboarding() {
-  onboarding = { step: 0, profile: { ...localState.profile }, selected: new Set(), baselineMastery: { ...localState.mastery } };
+  onboarding = { step: 0, profile: { ...learner.profile }, selected: new Set(), baselineMastery: levelSaver.levels, error: "" };
   renderOnboarding();
   onboardingDialog.showModal();
 }
@@ -736,12 +746,21 @@ function proposedCalibration() {
   return calibrationProposal(nodes, onboarding.baselineMastery, [...onboarding.selected]);
 }
 
+function formError(message) {
+  return message ? `<p class="form-error" role="alert">${esc(message)}</p>` : "";
+}
+
+function setBusy(container, busy) {
+  container.querySelectorAll("button").forEach((button) => { button.disabled = busy; });
+}
+
 function renderOnboarding() {
   if (onboarding.step === 0) {
     onboardingBody.innerHTML = `
       <h2 id="onboarding-title">Üdv a MathRecapben</h2>
       <p>A készségfa segít átlátni, mit tudsz és mi nyílik meg a következő lépésként.</p>
       <p>A tudásszinteket mindig te állítod; a gyakorlás nem módosítja őket.</p>
+      ${formError(onboarding.error)}
       <div class="modal-actions"><button class="ghost" data-onboarding="skip">Most kihagyom</button><button data-onboarding="next">Tovább</button></div>`;
     return;
   }
@@ -750,6 +769,7 @@ function renderOnboarding() {
       <h2 id="onboarding-title">Egy rövid profil</h2>
       <p>Opcionális. Csak a későbbi személyre szabott példákhoz használjuk.</p>
       ${profileFields(onboarding.profile)}
+      ${formError(onboarding.error)}
       <div class="modal-actions"><button class="ghost" data-onboarding="back">Vissza</button><button class="ghost" data-onboarding="skip">Kihagyom</button><button data-onboarding="next">Tovább</button></div>`;
     return;
   }
@@ -770,12 +790,30 @@ function renderOnboarding() {
     <h2 id="onboarding-title">Átnézés</h2>
     <p><b>${changes.length} készség</b> kap új szintet a kiválasztásaid alapján.</p>
     <div class="review-list">${changes.length ? changes.map((id) => `<div class="review-row"><span><code>${id}</code> ${esc(byId.get(id).name)}</span><b>${onboarding.baselineMastery[id]} → ${proposed[id]}</b></div>`).join("") : "<p>Nincs javasolt módosítás.</p>"}</div>
+    ${formError(onboarding.error)}
     <div class="modal-actions"><button class="ghost" data-onboarding="undo">Visszavonom</button><button class="ghost" data-onboarding="back">Módosítom</button><button data-onboarding="complete">Belépés a fába</button></div>`;
 }
 
-function finishOnboarding({ applyCalibration }) {
-  localState = { ...localState, profile: onboarding.profile, mastery: applyCalibration ? proposedCalibration() : onboarding.baselineMastery, onboardingComplete: true };
-  persistLocalState();
+// Saves the profile, the calibrated levels (in one request) and the completion. When something fails,
+// the dialog stays open with the error, and finishing again saves what is still missing.
+async function finishOnboarding({ applyCalibration }) {
+  setBusy(onboardingBody, true);
+  onboarding.error = "";
+  try {
+    if (!sameProfile(onboarding.profile, learner.profile)) {
+      await saveProfile(onboarding.profile);
+      learner.profile = onboarding.profile;
+    }
+    if (applyCalibration) {
+      levelSaver.set(levelChanges(onboarding.baselineMastery, proposedCalibration()));
+      if (!(await levelSaver.flush())) throw new Error("A tudásszintek mentése nem sikerült.");
+    }
+    await completeOnboarding();
+  } catch (error) {
+    onboarding.error = `Nem sikerült menteni: ${error.message} Próbáld újra.`;
+    renderOnboarding();
+    return;
+  }
   refreshLocks();
   onboardingDialog.close();
   onboarding = null;
@@ -795,15 +833,15 @@ onboardingBody.addEventListener("click", (event) => {
   const action = event.target.closest("[data-onboarding]")?.dataset.onboarding;
   if (!action) return;
   if (action === "skip") return finishOnboarding({ applyCalibration: false });
+  if (action === "complete") return finishOnboarding({ applyCalibration: true });
+  onboarding.error = "";
   if (action === "next") onboarding.step += 1;
   if (action === "back") onboarding.step -= 1;
   if (action === "review") onboarding.step = 3;
   if (action === "undo") {
-    localState = undoCalibrationProposal(localState, onboarding.baselineMastery);
     onboarding.selected.clear();
     onboarding.step = 2;
   }
-  if (action === "complete") return finishOnboarding({ applyCalibration: true });
   renderOnboarding();
 });
 onboardingDialog.addEventListener("cancel", (event) => event.preventDefault());
@@ -812,7 +850,7 @@ function renderSettings() {
   settingsBody.innerHTML = `
     <h2 id="settings-title">Beállítások</h2>
     <p>A profil opcionális.</p>
-    ${profileFields(localState.profile)}
+    ${profileFields(learner.profile)}
     <div class="modal-actions"><button class="ghost" data-settings="cancel">Mégse</button><button data-settings="save">Mentés</button></div>`;
 }
 
@@ -820,14 +858,25 @@ document.getElementById("settings-button").addEventListener("click", () => {
   renderSettings();
   settingsDialog.showModal();
 });
-settingsBody.addEventListener("click", (event) => {
+// A changed profile makes the shown "why it is useful" texts stale; the server writes new ones on request.
+settingsBody.addEventListener("click", async (event) => {
   const action = event.target.closest("[data-settings]")?.dataset.settings;
   if (action === "cancel") return settingsDialog.close();
-  if (action === "save") {
-    localState = updateProfile(localState, profileFrom(settingsBody));
-    persistLocalState();
-    settingsDialog.close();
+  if (action !== "save") return;
+  const profile = profileFrom(settingsBody);
+  setBusy(settingsBody, true);
+  try {
+    await saveProfile(profile);
+  } catch (error) {
+    setBusy(settingsBody, false);
+    settingsBody.querySelector(".form-error")?.remove();
+    settingsBody.querySelector(".modal-actions").insertAdjacentHTML("beforebegin", formError(`A profil mentése nem sikerült: ${error.message}`));
+    return;
   }
+  if (!sameProfile(profile, learner.profile)) usefulnessTexts.clear();
+  learner.profile = profile;
+  settingsDialog.close();
+  renderPanel();
 });
 // ---------------------------------------------------------------- fejléc
 
@@ -935,7 +984,10 @@ function restoreViewState() {
   visibilityFade = null;
 }
 
-window.addEventListener("pagehide", saveViewState);
+window.addEventListener("pagehide", () => {
+  saveViewState();
+  levelSaver.flush();
+});
 restoreViewState();
 resize();
-if (!localState.onboardingComplete) openOnboarding();
+if (!learner.onboardingComplete) openOnboarding();

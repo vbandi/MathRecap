@@ -1,18 +1,15 @@
-using System.Text.Json.Nodes;
 using MathRecap.Api.Accounts;
-using MathRecap.Api.Ai;
 using MathRecap.Api.Dev;
+using MathRecap.Api.Learners;
+using MathRecap.Api.Reviews;
 
 namespace MathRecap.Api;
-
-public sealed record WorksheetResponse(JsonNode Worksheet);
-
-public sealed record UsefulnessResponse(JsonNode Usefulness);
 
 public static class ApiEndpoints
 {
     // Every API endpoint needs a session, unless it is mapped with AllowAnonymous: the sign-in endpoints
-    // in AccountEndpoints, the dev tools, and the answer to unknown routes. Pages: see PageAccess.
+    // in AccountEndpoints, the dev tools, and the answer to unknown routes. Admin endpoints also need an
+    // admin (see Admins). Pages: see PageAccess.
     public static void MapApiEndpoints(this WebApplication app)
     {
         var api = app.MapGroup("/api").RequireAuthorization().AddEndpointFilter(async (context, next) =>
@@ -28,16 +25,10 @@ public static class ApiEndpoints
             }
         });
 
-        api.MapPost("/worksheets", async (HttpRequest request, Curriculum curriculum, ContentGenerator generator, CancellationToken cancellationToken) =>
-        {
-            var worksheetRequest = await GenerationRequests.ReadWorksheetRequestAsync(request, curriculum, cancellationToken);
-            return new WorksheetResponse(await generator.GenerateWorksheetAsync(worksheetRequest, cancellationToken));
-        });
-        api.MapPost("/usefulness", async (HttpRequest request, Curriculum curriculum, ContentGenerator generator, CancellationToken cancellationToken) =>
-        {
-            var usefulnessRequest = await GenerationRequests.ReadUsefulnessRequestAsync(request, curriculum, cancellationToken);
-            return new UsefulnessResponse(await generator.GenerateUsefulnessAsync(usefulnessRequest, cancellationToken));
-        });
+        api.MapLearnerEndpoints();
+        api.MapUsefulnessEndpoints();
+        api.MapWorksheetEndpoints();
+        api.MapIllustrationReviewEndpoints();
         api.MapAccountEndpoints();
         app.MapDevTools(api);
         api.Map("/{**path}", () => ApiErrors.Create(StatusCodes.Status404NotFound, "not_found", "Az API-végpont nem található.")).AllowAnonymous();

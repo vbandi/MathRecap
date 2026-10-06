@@ -15,9 +15,14 @@ public static class AccountServices
             .BindConfiguration(SignInOptions.SectionName)
             .Validate(options => options.CodeHashKey?.Length >= SignInOptions.MinimumKeyLength, $"SignIn:CodeHashKey must be configured, with at least {SignInOptions.MinimumKeyLength} characters.")
             .ValidateOnStart();
+        services.AddOptions<AdminOptions>()
+            .BindConfiguration(AdminOptions.SectionName)
+            .Validate(options => options.Emails.All(email => EmailAddress.TryParse(email) is not null), "Every Admin:Emails entry must be a valid email address.")
+            .ValidateOnStart();
         services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<SignInChallenges>();
         services.AddScoped<UserAccounts>();
+        services.AddScoped<Admins>();
         services.AddRateLimits();
 
         services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie(options =>

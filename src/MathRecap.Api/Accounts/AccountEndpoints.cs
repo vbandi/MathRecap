@@ -1,7 +1,4 @@
-using System.Security.Claims;
-using MathRecap.Api.Data;
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.EntityFrameworkCore;
 
 namespace MathRecap.Api.Accounts;
 
@@ -15,7 +12,8 @@ public sealed record AccountResponse(string Email);
 
 public static class AccountEndpoints
 {
-    // /api/auth/*. Requesting and verifying a code or link needs no session; the rest does.
+    // /api/auth/*. Requesting and verifying a code or link needs no session; signing out does. The account
+    // itself is under /api/me (see LearnerEndpoints).
     public static void MapAccountEndpoints(this RouteGroupBuilder api)
     {
         var auth = api.MapGroup("/auth");
@@ -41,11 +39,6 @@ public static class AccountEndpoints
         {
             await context.SignOutAsync();
             return TypedResults.NoContent();
-        });
-        auth.MapGet("/me", async (ClaimsPrincipal principal, AppDbContext db, CancellationToken cancellationToken) =>
-        {
-            var userId = UserAccounts.UserIdOf(principal);
-            return new AccountResponse(await db.Users.Where(user => user.Id == userId).Select(user => user.Email).SingleAsync(cancellationToken));
         });
     }
 }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { needsInlineMathSeparator, orderedProblemPairs, studentProblems } from "../../web/worksheet-model.mjs";
+import { needsInlineMathSeparator, orderedProblemPairs, studentProblems, worksheetPageUrl } from "../../web/worksheet-model.mjs";
 
 const worksheet = {
   exerciseGroups: [{
@@ -42,6 +42,11 @@ test("inline math retains word boundaries without adding a space before punctuat
   assert.equal(needsInlineMathSeparator({ value: "5x + 2" }, { value: "helyettesítési értékét" }), true);
   assert.equal(needsInlineMathSeparator({ value: "5x + 2" }, { value: "." }), false);
   assert.equal(needsInlineMathSeparator({ value: "ha " }, { value: "x = 3" }), false);
+});
+
+test("a saved worksheet has its own address on the skill's worksheet page", () => {
+  assert.equal(worksheetPageUrl("ALG-08"), "worksheet.html?skill=ALG-08");
+  assert.equal(worksheetPageUrl("ALG-08", "3f2c0e1a-0000-4000-8000-000000000001"), "worksheet.html?skill=ALG-08&worksheet=3f2c0e1a-0000-4000-8000-000000000001");
 });
 
 test("model text stays out of HTML insertion APIs and KaTeX is untrusted", () => {
