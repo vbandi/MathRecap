@@ -1,6 +1,9 @@
 // Review checklist for the skill illustrations. Flags were collected from the authoring
 // agents' reports and the integration pass; review state lives in localStorage.
 import { skills } from "./curriculum.mjs";
+import { mountAccountMenu } from "./session.js";
+
+mountAccountMenu(document.getElementById("account"));
 
 const STORAGE_KEY = "mathrecap.illustrationReview.v1";
 const BRANCHES = { LOG: "Logika", SZA: "Számok", ALG: "Algebra", FUG: "Függvények", GEO: "Geometria", ESE: "Esély" };

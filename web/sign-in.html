@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MathRecap - belépés</title>
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="sign-in.css">
+</head>
+<body>
+  <header class="topbar">
+    <span class="brand"><span class="logo" aria-hidden="true">√</span>MathRecap <small>belépés</small></span>
+  </header>
+  <main>
+    <section class="card" aria-labelledby="sign-in-title">
+      <p class="eyebrow">Belépés</p>
+      <h1 id="sign-in-title">Lépj be az e-mail-címeddel</h1>
+      <p class="lead">Küldünk egy 6 jegyű kódot és egy belépési linket. Ha még nincs fiókod, az első belépéssel létrejön.</p>
+      <form id="email-step" novalidate>
+        <label for="email">E-mail-cím</label>
+        <input id="email" class="input" type="email" autocomplete="email" maxlength="254" required>
+        <button class="btn" type="submit">Kód küldése</button>
+      </form>
+      <form id="code-step" novalidate hidden>
+        <label for="code">Belépési kód</label>
+        <input id="code" class="input code-input" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required aria-describedby="code-help">
+        <p id="code-help" class="hint">A levélben kapott 6 jegyű kód, vagy kattints a levél linkjére.</p>
+        <button class="btn" type="submit">Belépés</button>
+        <div class="secondary-actions">
+          <button id="resend" class="text-button" type="button" disabled aria-describedby="resend-hint">Új kód kérése</button>
+          <button id="change-email" class="text-button" type="button">Másik e-mail-cím</button>
+        </div>
+        <p id="resend-hint" class="hint"></p>
+      </form>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </section>
+    <section id="dev-accounts" class="card dev" aria-labelledby="dev-accounts-title" hidden></section>
+  </main>
+  <script type="module" src="sign-in.js"></script>
+</body>
+</html>

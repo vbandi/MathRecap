@@ -25,7 +25,7 @@ public sealed class GenerationEndpointsTests : IAsyncDisposable
     {
         await using var unconfigured = new MathRecapFactory { ApiKey = null };
 
-        var response = await unconfigured.CreateClient().PostAsJsonAsync(path, Body(path), TestContext.Current.CancellationToken);
+        var response = await (await unconfigured.CreateSignedInClientAsync()).PostAsJsonAsync(path, Body(path), TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
         var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
@@ -44,7 +44,7 @@ public sealed class GenerationEndpointsTests : IAsyncDisposable
     {
         var response = await PostRawAsync("/api/worksheets", body);
 
-        var error = await ErrorOf(response, HttpStatusCode.BadRequest, "invalid_request");
+        var error = await ApiAssert.ErrorAsync(response, HttpStatusCode.BadRequest, "invalid_request");
         Assert.Equal("A kérés nem felel meg az elvárt formátumnak.", error["message"]!.GetValue<string>());
         Assert.Equal(issuePath, error["details"]![0]!["path"]!.GetValue<string>());
         Assert.NotNull(error["details"]![0]!["message"]);
@@ -56,16 +56,16 @@ public sealed class GenerationEndpointsTests : IAsyncDisposable
     {
         var response = await PostRawAsync("/api/usefulness", """{"profile":{},"skillId":"ALG-08","skill":{"name":"Hamis név"}}""");
 
-        await ErrorOf(response, HttpStatusCode.BadRequest, "invalid_request");
+        await ApiAssert.ErrorAsync(response, HttpStatusCode.BadRequest, "invalid_request");
         Assert.Empty(factory.OpenRouter.Requests);
     }
 
     [Fact]
     public async Task OversizedBodiesAreRejected()
     {
-        var response = await PostRawAsync("/api/worksheets", new string('x', GenerationRequests.MaxBodyBytes + 1));
+        var response = await PostRawAsync("/api/worksheets", new string('x', JsonRequests.MaxBodyBytes + 1));
 
-        var error = await ErrorOf(response, HttpStatusCode.RequestEntityTooLarge, "payload_too_large");
+        var error = await ApiAssert.ErrorAsync(response, HttpStatusCode.RequestEntityTooLarge, "payload_too_large");
         Assert.Equal("A kérés túl nagy.", error["message"]!.GetValue<string>());
         Assert.Empty(factory.OpenRouter.Requests);
     }
@@ -75,25 +75,25 @@ public sealed class GenerationEndpointsTests : IAsyncDisposable
     {
         var response = await PostRawAsync("/api/usefulness", "{\"profile\":");
 
-        var error = await ErrorOf(response, HttpStatusCode.BadRequest, "invalid_json");
+        var error = await ApiAssert.ErrorAsync(response, HttpStatusCode.BadRequest, "invalid_json");
         Assert.Equal("A kérés törzse érvénytelen JSON.", error["message"]!.GetValue<string>());
     }
 
     [Fact]
     public async Task CrossSiteRequestsCannotReachTheModel()
     {
-        var client = factory.CreateClient();
+        var client = await factory.CreateSignedInClientAsync();
         var body = Body("/api/worksheets").ToJsonString();
 
         foreach (var origin in new[] { "https://attacker.example", "null" })
         {
             using var crossOrigin = new HttpRequestMessage(HttpMethod.Post, "/api/worksheets") { Content = new StringContent(body, Encoding.UTF8, "application/json") };
             crossOrigin.Headers.Add("Origin", origin);
-            await ErrorOf(await client.SendAsync(crossOrigin, TestContext.Current.CancellationToken), HttpStatusCode.Forbidden, "forbidden_origin");
+            await ApiAssert.ErrorAsync(await client.SendAsync(crossOrigin, TestContext.Current.CancellationToken), HttpStatusCode.Forbidden, "forbidden_origin");
         }
 
         var simplePost = await client.PostAsync("/api/worksheets", new StringContent(body, Encoding.UTF8, "text/plain"), TestContext.Current.CancellationToken);
-        var error = await ErrorOf(simplePost, HttpStatusCode.UnsupportedMediaType, "unsupported_media_type");
+        var error = await ApiAssert.ErrorAsync(simplePost, HttpStatusCode.UnsupportedMediaType, "unsupported_media_type");
         Assert.Equal("A kérés törzsének JSON-nak kell lennie.", error["message"]!.GetValue<string>());
 
         var rebound = await factory.Server.SendAsync(context =>
@@ -152,7 +152,7 @@ public sealed class GenerationEndpointsTests : IAsyncDisposable
 
         var response = await PostAsync("/api/usefulness");
 
-        var error = await ErrorOf(response, HttpStatusCode.TooManyRequests, "rate_limited");
+        var error = await ApiAssert.ErrorAsync(response, HttpStatusCode.TooManyRequests, "rate_limited");
         Assert.Equal("Az OpenRouter átmenetileg korlátozza a kéréseket.", error["message"]!.GetValue<string>());
         Assert.Equal(["json_schema"], ResponseFormats());
     }
@@ -188,7 +188,7 @@ public sealed class GenerationEndpointsTests : IAsyncDisposable
 
         var response = await PostAsync("/api/worksheets");
 
-        var error = await ErrorOf(response, HttpStatusCode.BadGateway, "invalid_upstream_response");
+        var error = await ApiAssert.ErrorAsync(response, HttpStatusCode.BadGateway, "invalid_upstream_response");
         Assert.Equal("Az OpenRouter feladatlapja hiányos vagy érvénytelen volt.", error["message"]!.GetValue<string>());
         Assert.Equal(2, factory.OpenRouter.Requests.Count);
     }
@@ -200,7 +200,7 @@ public sealed class GenerationEndpointsTests : IAsyncDisposable
 
         var response = await PostAsync("/api/worksheets");
 
-        var error = await ErrorOf(response, HttpStatusCode.BadGateway, "invalid_upstream_response");
+        var error = await ApiAssert.ErrorAsync(response, HttpStatusCode.BadGateway, "invalid_upstream_response");
         Assert.Equal("Az OpenRouter nem érvényes JSON-t adott vissza.", error["message"]!.GetValue<string>());
         Assert.Single(factory.OpenRouter.Requests);
     }
@@ -235,7 +235,7 @@ public sealed class GenerationEndpointsTests : IAsyncDisposable
 
         var response = await PostAsync("/api/usefulness");
 
-        var error = await ErrorOf(response, HttpStatusCode.BadGateway, "invalid_upstream_response");
+        var error = await ApiAssert.ErrorAsync(response, HttpStatusCode.BadGateway, "invalid_upstream_response");
         Assert.Equal(message, error["message"]!.GetValue<string>());
         Assert.Single(factory.OpenRouter.Requests);
     }
@@ -246,9 +246,9 @@ public sealed class GenerationEndpointsTests : IAsyncDisposable
         await using var slow = new MathRecapFactory { Timeout = TimeSpan.FromMilliseconds(50) };
         slow.OpenRouter.RespondNever();
 
-        var response = await slow.CreateClient().PostAsJsonAsync("/api/usefulness", Body("/api/usefulness"), TestContext.Current.CancellationToken);
+        var response = await (await slow.CreateSignedInClientAsync()).PostAsJsonAsync("/api/usefulness", Body("/api/usefulness"), TestContext.Current.CancellationToken);
 
-        var error = await ErrorOf(response, HttpStatusCode.GatewayTimeout, "timeout");
+        var error = await ApiAssert.ErrorAsync(response, HttpStatusCode.GatewayTimeout, "timeout");
         Assert.Equal("Az OpenRouter-kérés időtúllépés miatt megszakadt.", error["message"]!.GetValue<string>());
     }
 
@@ -260,7 +260,7 @@ public sealed class GenerationEndpointsTests : IAsyncDisposable
 
         var response = await PostAsync("/api/usefulness");
 
-        var error = await ErrorOf(response, HttpStatusCode.NotFound, "model_unavailable");
+        var error = await ApiAssert.ErrorAsync(response, HttpStatusCode.NotFound, "model_unavailable");
         Assert.Equal("A beállított AI-modell jelenleg nem érhető el.", error["message"]!.GetValue<string>());
     }
 
@@ -271,7 +271,7 @@ public sealed class GenerationEndpointsTests : IAsyncDisposable
 
         var response = await PostAsync("/api/usefulness");
 
-        var error = await ErrorOf(response, HttpStatusCode.BadGateway, "upstream_error");
+        var error = await ApiAssert.ErrorAsync(response, HttpStatusCode.BadGateway, "upstream_error");
         Assert.Equal("Az OpenRouter-kérés sikertelen volt. Próbáld később újra.", error["message"]!.GetValue<string>());
         Assert.DoesNotContain("upstream secret detail", error.ToJsonString());
     }
@@ -286,7 +286,7 @@ public sealed class GenerationEndpointsTests : IAsyncDisposable
 
         var response = await PostAsync("/api/usefulness");
 
-        await ErrorOf(response, HttpStatusCode.BadGateway, code);
+        await ApiAssert.ErrorAsync(response, HttpStatusCode.BadGateway, code);
     }
 
     [Fact]
@@ -305,8 +305,9 @@ public sealed class GenerationEndpointsTests : IAsyncDisposable
             ["skillId"] = SkillId,
         };
 
-        await factory.CreateClient().PostAsJsonAsync("/api/worksheets", body, TestContext.Current.CancellationToken);
-        await factory.CreateClient().PostAsJsonAsync("/api/usefulness", new JsonObject { ["profile"] = body["profile"]!.DeepClone(), ["skillId"] = SkillId }, TestContext.Current.CancellationToken);
+        var client = await factory.CreateSignedInClientAsync();
+        await client.PostAsJsonAsync("/api/worksheets", body, TestContext.Current.CancellationToken);
+        await client.PostAsJsonAsync("/api/usefulness", new JsonObject { ["profile"] = body["profile"]!.DeepClone(), ["skillId"] = SkillId }, TestContext.Current.CancellationToken);
 
         var logged = factory.Logs.Entries.Where(entry => entry.Level >= LogLevel.Information).ToList();
         Assert.Contains(logged, entry => entry.Category.EndsWith(nameof(ContentGenerator), StringComparison.Ordinal));
@@ -331,9 +332,9 @@ public sealed class GenerationEndpointsTests : IAsyncDisposable
     [Fact]
     public async Task GenerationEndpointsOnlyAcceptPost()
     {
-        var response = await factory.CreateClient().GetAsync("/api/worksheets", TestContext.Current.CancellationToken);
+        var response = await (await factory.CreateSignedInClientAsync()).GetAsync("/api/worksheets", TestContext.Current.CancellationToken);
 
-        await ErrorOf(response, HttpStatusCode.NotFound, "not_found");
+        await ApiAssert.ErrorAsync(response, HttpStatusCode.NotFound, "not_found");
         Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
     }
 
@@ -348,20 +349,11 @@ public sealed class GenerationEndpointsTests : IAsyncDisposable
         return body;
     }
 
-    private Task<HttpResponseMessage> PostAsync(string path) =>
-        factory.CreateClient().PostAsJsonAsync(path, Body(path), TestContext.Current.CancellationToken);
+    private async Task<HttpResponseMessage> PostAsync(string path) =>
+        await (await factory.CreateSignedInClientAsync()).PostAsJsonAsync(path, Body(path), TestContext.Current.CancellationToken);
 
-    private Task<HttpResponseMessage> PostRawAsync(string path, string body) =>
-        factory.CreateClient().PostAsync(path, new StringContent(body, Encoding.UTF8, "application/json"), TestContext.Current.CancellationToken);
+    private async Task<HttpResponseMessage> PostRawAsync(string path, string body) =>
+        await (await factory.CreateSignedInClientAsync()).PostAsync(path, new StringContent(body, Encoding.UTF8, "application/json"), TestContext.Current.CancellationToken);
 
     private List<string> ResponseFormats() => [.. factory.OpenRouter.Requests.Select(request => request.Body["response_format"]!["type"]!.GetValue<string>())];
-
-    private static async Task<JsonNode> ErrorOf(HttpResponseMessage response, HttpStatusCode status, string code)
-    {
-        Assert.Equal(status, response.StatusCode);
-        Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
-        var error = (await response.Content.ReadFromJsonAsync<JsonNode>(TestContext.Current.CancellationToken))!["error"]!;
-        Assert.Equal(code, error["code"]!.GetValue<string>());
-        return error;
-    }
 }

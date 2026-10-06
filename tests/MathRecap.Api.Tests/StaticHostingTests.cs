@@ -6,11 +6,10 @@ namespace MathRecap.Api.Tests;
 
 public sealed class StaticHostingTests(MathRecapFactory factory) : IClassFixture<MathRecapFactory>
 {
-    private readonly HttpClient client = factory.CreateClient();
-
     [Fact]
     public async Task IndexPageIsServedAtRoot()
     {
+        var client = await factory.CreateSignedInClientAsync();
         var response = await client.GetAsync("/", TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -30,6 +29,7 @@ public sealed class StaticHostingTests(MathRecapFactory factory) : IClassFixture
     [InlineData("/vendor/katex/fonts/KaTeX_Main-Regular.woff2", "font/woff2", null)]
     public async Task StaticFilesAreServedWithTheirContentType(string path, string mediaType, string? charSet)
     {
+        var client = await factory.CreateSignedInClientAsync();
         var response = await client.GetAsync(path, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -43,6 +43,7 @@ public sealed class StaticHostingTests(MathRecapFactory factory) : IClassFixture
     [InlineData("/worksheet.html")]
     public async Task FrontEndFilesAreRevalidatedOnEveryLoad(string path)
     {
+        var client = await factory.CreateSignedInClientAsync();
         var response = await client.GetAsync(path, TestContext.Current.CancellationToken);
 
         Assert.True(response.Headers.CacheControl?.NoCache);
@@ -51,6 +52,7 @@ public sealed class StaticHostingTests(MathRecapFactory factory) : IClassFixture
     [Fact]
     public async Task WorksheetPageHasAnAnswerKeyView()
     {
+        var client = await factory.CreateSignedInClientAsync();
         var page = await client.GetStringAsync("/worksheet.html", TestContext.Current.CancellationToken);
 
         Assert.Contains("Megoldókulcs", page);

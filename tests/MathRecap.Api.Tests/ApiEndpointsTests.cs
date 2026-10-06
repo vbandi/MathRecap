@@ -6,8 +6,6 @@ namespace MathRecap.Api.Tests;
 
 public sealed class ApiEndpointsTests(MathRecapFactory factory) : IClassFixture<MathRecapFactory>
 {
-    private readonly HttpClient client = factory.CreateClient();
-
     [Theory]
     [InlineData("GET", "/api/x")]
     [InlineData("POST", "/api/x")]
@@ -15,6 +13,7 @@ public sealed class ApiEndpointsTests(MathRecapFactory factory) : IClassFixture<
     public async Task UnknownApiRoutesReturnJsonNotFound(string method, string path)
     {
         using var request = new HttpRequestMessage(new HttpMethod(method), path);
+        var client = await factory.CreateSignedInClientAsync();
         var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);

@@ -1,8 +1,11 @@
 import { findSkill, skills } from "./curriculum.mjs";
 import { renderFigure } from "./figures.js";
 import { illustrations, hasIllustration } from "./illustrations/registry.js";
+import { mountAccountMenu } from "./session.js";
 import { loadLocalState } from "./state.js";
 import { needsInlineMathSeparator, orderedProblemPairs, studentProblems } from "./worksheet-model.mjs";
+
+mountAccountMenu(document.getElementById("account"));
 
 const skill = findSkill(new URLSearchParams(window.location.search).get("skill"));
 const state = loadLocalState(window.localStorage, skills.map(({ id }) => id));

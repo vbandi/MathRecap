@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -14,8 +13,6 @@ public sealed record UsefulnessRequest(Profile Profile, Skill Skill);
 // RequestSchemas/; the skill must exist in the curriculum.
 public static class GenerationRequests
 {
-    public const int MaxBodyBytes = 64 * 1024;
-
     private static readonly JsonContract WorksheetFormat = JsonContract.Load("worksheet-request.schema.json");
     private static readonly JsonContract UsefulnessFormat = JsonContract.Load("usefulness-request.schema.json");
 
@@ -33,19 +30,14 @@ public static class GenerationRequests
 
     private static async Task<(JsonObject Body, Skill Skill)> ReadAsync(HttpRequest request, JsonContract format, Curriculum curriculum, CancellationToken cancellationToken)
     {
-        if (request.ContentType?.Split(';')[0].Trim().Equals("application/json", StringComparison.OrdinalIgnoreCase) != true)
-        {
-            throw new ApiException(StatusCodes.Status415UnsupportedMediaType, "unsupported_media_type", "A kérés törzsének JSON-nak kell lennie.");
-        }
-
         JsonNode? body;
         try
         {
-            body = format.Parse(await ReadTextAsync(request.Body, cancellationToken));
+            body = format.Parse(await JsonRequests.ReadTextAsync(request, cancellationToken));
         }
         catch (JsonException)
         {
-            throw new ApiException(StatusCodes.Status400BadRequest, "invalid_json", "A kérés törzse érvénytelen JSON.");
+            throw JsonRequests.InvalidJson();
         }
 
         var issues = format.Validate(body).ToList();
@@ -57,16 +49,6 @@ public static class GenerationRequests
             throw new ApiException(StatusCodes.Status400BadRequest, "invalid_request", "A kérés nem felel meg az elvárt formátumnak.", issues);
         }
         return (body!.AsObject(), skill!);
-    }
-
-    private static async Task<string> ReadTextAsync(Stream body, CancellationToken cancellationToken)
-    {
-        var buffer = new byte[MaxBodyBytes + 1];
-        var length = 0;
-        int read;
-        while (length < buffer.Length && (read = await body.ReadAsync(buffer.AsMemory(length), cancellationToken)) > 0) length += read;
-        if (length > MaxBodyBytes) throw new ApiException(StatusCodes.Status413PayloadTooLarge, "payload_too_large", "A kérés túl nagy.");
-        return Encoding.UTF8.GetString(buffer, 0, length);
     }
 
     private static Profile ProfileOf(JsonObject body)

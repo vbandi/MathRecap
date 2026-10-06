@@ -7,6 +7,9 @@
 
   <ItemGroup>
     <PackageReference Include="LateApexEarlySpeed.Json.Schema" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+    <!-- For the dotnet-ef tool (see dotnet-tools.json); not part of the app. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
   </ItemGroup>
 
   <!-- JSON Schemas of the request bodies and the model output, loaded by file name. -->

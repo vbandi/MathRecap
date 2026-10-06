@@ -1,5 +1,7 @@
 using System.Text.Json.Nodes;
+using MathRecap.Api.Accounts;
 using MathRecap.Api.Ai;
+using MathRecap.Api.Dev;
 
 namespace MathRecap.Api;
 
@@ -9,9 +11,11 @@ public sealed record UsefulnessResponse(JsonNode Usefulness);
 
 public static class ApiEndpoints
 {
+    // Every API endpoint needs a session, unless it is mapped with AllowAnonymous: the sign-in endpoints
+    // in AccountEndpoints, the dev tools, and the answer to unknown routes. Pages: see PageAccess.
     public static void MapApiEndpoints(this WebApplication app)
     {
-        var api = app.MapGroup("/api").AddEndpointFilter(async (context, next) =>
+        var api = app.MapGroup("/api").RequireAuthorization().AddEndpointFilter(async (context, next) =>
         {
             context.HttpContext.Response.Headers.CacheControl = "no-store";
             try
@@ -34,6 +38,8 @@ public static class ApiEndpoints
             var usefulnessRequest = await GenerationRequests.ReadUsefulnessRequestAsync(request, curriculum, cancellationToken);
             return new UsefulnessResponse(await generator.GenerateUsefulnessAsync(usefulnessRequest, cancellationToken));
         });
-        api.Map("/{**path}", () => ApiErrors.Create(StatusCodes.Status404NotFound, "not_found", "Az API-végpont nem található."));
+        api.MapAccountEndpoints();
+        app.MapDevTools(api);
+        api.Map("/{**path}", () => ApiErrors.Create(StatusCodes.Status404NotFound, "not_found", "Az API-végpont nem található.")).AllowAnonymous();
     }
 }

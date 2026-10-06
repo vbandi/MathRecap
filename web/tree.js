@@ -1,7 +1,10 @@
 "use strict";
 
 import { dependentsOf, skills } from "./curriculum.mjs";
+import { mountAccountMenu } from "./session.js";
 import { cacheUsefulness, calibrationProposal, loadLocalState, recomputeLocks, saveLocalState, setManualMastery, undoCalibrationProposal, updateProfile, usefulnessDisplayState } from "./state.js";
+
+mountAccountMenu(document.getElementById("account"));
 
 const BRANCHES = {
   LOG: { name: "Logika", color: "#6C5CE7", darkText: false },
