@@ -1,6 +1,6 @@
 export const LOCAL_STATE_KEY = "mathrecap.local-state";
 export const LOCAL_STATE_VERSION = 3;
-export const DEFAULT_MODEL_ID = "openai/gpt-5.6-luna";
+export const DEFAULT_MODEL_ID = "openai/gpt-6-luna";
 
 const EMPTY_PROFILE = Object.freeze({ interests: "", background: "", goal: "" });
 // Storage keys written by versions before 3 used Hungarian names.

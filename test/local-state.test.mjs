@@ -19,7 +19,7 @@ test("local state defaults all skills and safely replaces corrupt storage", () =
   assert.equal(defaults.version, LOCAL_STATE_VERSION);
   assert.deepEqual(defaults.mastery, { ROOT: 0, CHILD: 0, OTHER: 0 });
   assert.deepEqual(defaults.profile, { interests: "", background: "", goal: "" });
-  assert.equal(defaults.selectedModel, "openai/gpt-5.6-luna");
+  assert.equal(defaults.selectedModel, "openai/gpt-6-luna");
 
   const corrupt = loadLocalState(memoryStorage({ [LOCAL_STATE_KEY]: "not json" }), skillIds);
   assert.deepEqual(corrupt, defaults);
