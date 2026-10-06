@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { dependentsOf, findSkill, skills } from "../poc/curriculum.mjs";
+import { dependentsOf, findSkill, skills } from "../../web/curriculum.mjs";
 
 test("the curriculum is one consistent, read-only graph", () => {
   assert.equal(skills.length, 190);

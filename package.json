@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:data": "node poc/build-data.mjs",
+    "build:data": "node tools/build-data.mjs",
     "start": "node server.mjs",
-    "test": "node --test"
+    "test": "node --test \"tests/web/**/*.test.mjs\""
   },
   "dependencies": {
     "katex": "^0.16.22",

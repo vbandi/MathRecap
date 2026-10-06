@@ -6,7 +6,7 @@ An illustration is an interactive explainer for one skill, shown on the Gyakorl√
 
 ## Reference implementations
 
-Read at least two before writing, and match their structure and quality:
+All files below are in `web/illustrations/`. Read at least two before writing, and match their structure and quality:
 
 - `log-06.js` (Venn diagram, animated chips), `sza-12.js` (fraction bars, keyed fade-in lines),
   `alg-13.js` (balance scale, click interaction, scripted demo), `fug-10.js` (coordinate plot,
@@ -18,7 +18,7 @@ Read at least two before writing, and match their structure and quality:
 
 ## Module contract
 
-- File: `poc/illustrations/<id-lowercase>.js`, e.g. `geo-14.js` for `GEO-14`.
+- File: `web/illustrations/<id-lowercase>.js`, e.g. `geo-14.js` for `GEO-14`.
 - `export function mount(root)` builds everything inside `root` and returns a cleanup function.
   Put every timer/animation frame through `createScope()` and return `() => scope.clearAll()`.
 - No DOM access at import time (the module is imported by node tests).
@@ -64,8 +64,8 @@ Changing a control must not make surrounding text or controls jump:
 
 ## Checking your work
 
-1. `node --check poc/illustrations/<file>.js` and
-   `node -e "import('./poc/illustrations/<file>.js').then(m => console.log(typeof m.mount))"`
+1. `node --check web/illustrations/<file>.js` and
+   `node -e "import('./web/illustrations/<file>.js').then(m => console.log(typeof m.mount))"`
    (from the repo root; must print `function`).
 2. In the browser: the dev server is already running at `http://localhost:62563`. Open
    `http://localhost:62563/worksheet.html?skill=<ID>&dev-illustration` in **your own new tab**

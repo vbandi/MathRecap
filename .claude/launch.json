@@ -2,7 +2,17 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "start",
+      "name": "app",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": [
+        "run",
+        "--project",
+        "src/MathRecap.Api"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "node-legacy",
       "runtimeExecutable": "npm",
       "runtimeArgs": [
         "run",

@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1200,
+      "description": "2-4 mondat."
+    }
+  },
+  "required": [
+    "text"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\'))</RepoRoot>
+  </PropertyGroup>
+
+  <!-- In the repo the app reads the front end and KaTeX in place (see appsettings.Development.json);
+       a published app carries its own copies, at the paths appsettings.json expects. -->
+  <ItemGroup>
+    <Content Include="$(RepoRoot)web\**" LinkBase="web" CopyToOutputDirectory="Never" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="$(RepoRoot)node_modules\katex\dist\**" LinkBase="vendor\katex" CopyToOutputDirectory="Never" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

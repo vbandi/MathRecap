@@ -2,3 +2,10 @@ node_modules/
 .env
 .env.*
 !.env.example
+
+# .NET
+bin/
+obj/
+TestResults/
+*.user
+.vs/

@@ -1,22 +1,25 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { compileExpression, isValidExpression, niceStep, sampleFunction, tickValues } from "../poc/figure-model.mjs";
-import { parseWorksheetResponse } from "../server/schemas.mjs";
+import { compileExpression, isValidExpression, niceStep, sampleFunction, tickValues } from "../../web/figure-model.mjs";
+import { parseWorksheetResponse } from "../../server/schemas.mjs";
+
+const expressionCases = JSON.parse(readFileSync(new URL("../fixtures/figure-expressions.json", import.meta.url), "utf8"));
 
 test("function expressions support school notation and evaluate correctly", () => {
-  const cases = [
-    ["2x^2 - 3", 2, 5], ["-x^2", 3, -9], ["2^-x", 2, 0.25], ["(x+1)(x-1)", 3, 8], ["2^3^2", 0, 512],
-    ["sqrt(x+1)", 3, 2], ["0,5x + 1", 4, 3], ["3·x−2", 2, 4], ["abs(x) - 1", -4, 3], ["log(x)", 100, 2],
-  ];
-  for (const [source, x, expected] of cases) assert.equal(compileExpression(source)(x), expected, source);
-  assert.ok(Math.abs(compileExpression("sin(pi/2)")(0) - 1) < 1e-12);
+  for (const { expression, samples } of expressionCases.valid) {
+    assert.equal(isValidExpression(expression), true, expression);
+    const evaluate = compileExpression(expression);
+    for (const [x, expected] of samples) {
+      const actual = evaluate(x);
+      if (expected === null) assert.equal(Number.isFinite(actual), false, `${expression} at ${x}`);
+      else assert.ok(Math.abs(actual - expected) <= 1e-9, `${expression} at ${x}: ${actual} != ${expected}`);
+    }
+  }
 });
 
 test("function expressions reject anything outside the whitelist", () => {
-  for (const source of ["alert(1)", "y + 1", "constructor", "x)", "sin x", "", "x;1", "x".repeat(201)]) {
-    assert.equal(isValidExpression(source), false, source);
-  }
+  for (const { expression } of expressionCases.invalid) assert.equal(isValidExpression(expression), false, expression);
 });
 
 test("axis ticks use 1-2-5 steps without floating-point noise", () => {
@@ -87,8 +90,8 @@ test("invalid figure descriptions are rejected", () => {
 });
 
 test("figure renderer builds SVG through DOM APIs only", () => {
-  const rendererSource = readFileSync(new URL("../poc/figures.js", import.meta.url), "utf8");
+  const rendererSource = readFileSync(new URL("../../web/figures.js", import.meta.url), "utf8");
   assert.doesNotMatch(rendererSource, /(?:innerHTML|insertAdjacentHTML|outerHTML|DOMParser|eval\(|new Function)/);
-  const modelSource = readFileSync(new URL("../poc/figure-model.mjs", import.meta.url), "utf8");
+  const modelSource = readFileSync(new URL("../../web/figure-model.mjs", import.meta.url), "utf8");
   assert.doesNotMatch(modelSource, /(?:eval\(|new Function)/);
 });

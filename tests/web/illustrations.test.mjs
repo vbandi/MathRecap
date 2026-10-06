@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { findSkill } from "../poc/curriculum.mjs";
-import { illustrations, hasIllustration } from "../poc/illustrations/registry.js";
-import { formatNumber, gcd, withInstrumental } from "../poc/illustrations/kit.js";
-import { formula } from "../poc/illustrations/fug-10.js";
+import { findSkill } from "../../web/curriculum.mjs";
+import { illustrations, hasIllustration } from "../../web/illustrations/registry.js";
+import { formatNumber, gcd, withInstrumental } from "../../web/illustrations/kit.js";
+import { formula } from "../../web/illustrations/fug-10.js";
 
 test("every illustration belongs to an existing skill and exports mount", async () => {
   for (const [skillId, load] of Object.entries(illustrations)) {

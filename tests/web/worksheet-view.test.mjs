@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { needsInlineMathSeparator, orderedProblemPairs, studentProblems } from "../poc/worksheet-model.mjs";
+import { needsInlineMathSeparator, orderedProblemPairs, studentProblems } from "../../web/worksheet-model.mjs";
 
 const worksheet = {
   exerciseGroups: [{
@@ -45,13 +45,13 @@ test("inline math retains word boundaries without adding a space before punctuat
 });
 
 test("model text stays out of HTML insertion APIs and KaTeX is untrusted", () => {
-  const rendererSource = readFileSync(new URL("../poc/worksheet.js", import.meta.url), "utf8");
+  const rendererSource = readFileSync(new URL("../../web/worksheet.js", import.meta.url), "utf8");
   assert.doesNotMatch(rendererSource, /(?:innerHTML|insertAdjacentHTML)/);
   assert.match(rendererSource, /trust: false/);
 });
 
 test("student worksheet renderer includes the settled student sections only", () => {
-  const rendererSource = readFileSync(new URL("../poc/worksheet.js", import.meta.url), "utf8");
+  const rendererSource = readFileSync(new URL("../../web/worksheet.js", import.meta.url), "utf8");
   const studentRenderer = rendererSource.match(/function renderWorksheet\(\) \{([\s\S]*?)\n\}/)?.[1];
 
   assert.ok(studentRenderer);
@@ -66,7 +66,7 @@ test("student worksheet renderer includes the settled student sections only", ()
 });
 
 test("answer key renders every generated section the student sheet leaves out", () => {
-  const rendererSource = readFileSync(new URL("../poc/worksheet.js", import.meta.url), "utf8");
+  const rendererSource = readFileSync(new URL("../../web/worksheet.js", import.meta.url), "utf8");
   const answerRenderer = rendererSource.match(/function renderAnswers\(\) \{([\s\S]*?)\n\}/)?.[1];
 
   assert.ok(answerRenderer);

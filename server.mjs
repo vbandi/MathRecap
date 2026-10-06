@@ -3,12 +3,12 @@ import { createServer as createHttpServer } from "node:http";
 import { extname, isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ZodError } from "zod";
-import { findSkill } from "./poc/curriculum.mjs";
+import { findSkill } from "./web/curriculum.mjs";
 import { generateUsefulness, generateWorksheet, listModels, normalizeOpenRouterError } from "./server/openrouter.mjs";
 import { usefulnessRequestSchema, worksheetRequestSchema } from "./server/schemas.mjs";
 
 const root = resolve(fileURLToPath(new URL(".", import.meta.url)));
-const publicDir = join(root, "poc");
+const publicDir = join(root, "web");
 const katexDir = join(root, "node_modules", "katex", "dist");
 const MAX_BODY_BYTES = 64 * 1024;
 const MIME_TYPES = { ".css": "text/css; charset=utf-8", ".html": "text/html; charset=utf-8", ".js": "application/javascript; charset=utf-8", ".mjs": "application/javascript; charset=utf-8", ".json": "application/json; charset=utf-8", ".woff2": "font/woff2" };

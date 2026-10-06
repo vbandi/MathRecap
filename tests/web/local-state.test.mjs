@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cacheUsefulness, calibrationProposal, DEFAULT_MODEL_ID, LOCAL_STATE_KEY, LOCAL_STATE_VERSION, loadLocalState, recomputeLocks, saveLocalState, setManualMastery, undoCalibrationProposal, updateProfileAndModel, usefulnessDisplayState, usefulnessFingerprint } from "../poc/state.js";
+import { cacheUsefulness, calibrationProposal, DEFAULT_MODEL_ID, LOCAL_STATE_KEY, LOCAL_STATE_VERSION, loadLocalState, recomputeLocks, saveLocalState, setManualMastery, undoCalibrationProposal, updateProfileAndModel, usefulnessDisplayState, usefulnessFingerprint } from "../../web/state.js";
 
 function memoryStorage(initial = {}) {
   const values = new Map(Object.entries(initial));

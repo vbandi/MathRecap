@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { findSkill } from "../poc/curriculum.mjs";
-import { isValidExpression, MAX_EXPRESSION_LENGTH } from "../poc/figure-model.mjs";
+import { findSkill } from "../web/curriculum.mjs";
+import { isValidExpression, MAX_EXPRESSION_LENGTH } from "../web/figure-model.mjs";
 
 // The response schemas are the single definition of the model output format: they validate the
 // output, and their JSON Schema (descriptions included) is what the model is asked to follow.

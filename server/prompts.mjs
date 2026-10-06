@@ -1,4 +1,4 @@
-import { dependentsOf, findSkill } from "../poc/curriculum.mjs";
+import { dependentsOf, findSkill } from "../web/curriculum.mjs";
 import { usefulnessJsonSchema, worksheetJsonSchema } from "./schemas.mjs";
 
 const INITIAL_WORKSHEET_PROMPT = `Készíts tömör, önállóan használható magyar nyelvű gyakorló feladatlapot a megadott témáról. A tanulói szintet a tantervi készség köre és a kérésben esetleg megadott szint határozza meg. A feladatok legyenek matematikailag pontosak, fokozatosak, és a megoldókulcs minden feladathoz adjon rövid indoklást.

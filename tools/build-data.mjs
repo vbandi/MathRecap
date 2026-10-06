@@ -1,6 +1,6 @@
-// Reads the skill tables in agak/*.md and writes poc/curriculum-data.mjs.
-// Run: node poc/build-data.mjs
-import { readFileSync, writeFileSync, readdirSync } from "node:fs";
+// Reads the skill tables in agak/*.md and writes web/data/curriculum.json.
+// Run: npm run build:data
+import { mkdirSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -56,10 +56,9 @@ function visit(node) {
 }
 nodes.forEach(visit);
 
-const out = `// Generated file - do not edit. Source: agak/*.md, generator: poc/build-data.mjs
-export const skills = ${JSON.stringify(nodes, null, 1)};
-`;
-writeFileSync(join(root, "poc", "curriculum-data.mjs"), out, "utf8");
+const dataDir = join(root, "web", "data");
+mkdirSync(dataDir, { recursive: true });
+writeFileSync(join(dataDir, "curriculum.json"), `${JSON.stringify(nodes, null, 1)}\n`, "utf8");
 
 const perBranch = {};
 for (const node of nodes) perBranch[node.branch] = (perBranch[node.branch] ?? 0) + 1;

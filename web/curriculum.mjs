@@ -1,5 +1,5 @@
 // The curriculum graph, shared by the browser pages, the server and the tests.
-import { skills as generatedSkills } from "./curriculum-data.mjs";
+import generatedSkills from "./data/curriculum.json" with { type: "json" };
 
 export const skills = Object.freeze(generatedSkills.map((skill) => Object.freeze({ ...skill, prerequisites: Object.freeze([...skill.prerequisites]) })));
 

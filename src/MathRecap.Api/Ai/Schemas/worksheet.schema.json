@@ -1,0 +1,899 @@
+{
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "explanation": {
+      "$ref": "#/$defs/content"
+    },
+    "assumedPrerequisites": {
+      "maxItems": 30,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 240
+      }
+    },
+    "workedExamples": {
+      "minItems": 1,
+      "maxItems": 2,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          "steps": {
+            "$ref": "#/$defs/content"
+          }
+        },
+        "required": [
+          "title",
+          "steps"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "whyThisMatters": {
+      "$ref": "#/$defs/content"
+    },
+    "exerciseGroups": {
+      "minItems": 1,
+      "maxItems": 12,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          "problems": {
+            "minItems": 1,
+            "maxItems": 40,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9_-]+$",
+                  "description": "Egyedi azonosító, pl. \"p1\"."
+                },
+                "prompt": {
+                  "$ref": "#/$defs/content"
+                }
+              },
+              "required": [
+                "id",
+                "prompt"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "title",
+          "problems"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "canChecklist": {
+      "minItems": 1,
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 240
+      }
+    },
+    "answers": {
+      "minItems": 1,
+      "maxItems": 200,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "problemId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          },
+          "answer": {
+            "$ref": "#/$defs/content"
+          },
+          "reasoning": {
+            "$ref": "#/$defs/content"
+          }
+        },
+        "required": [
+          "problemId",
+          "answer",
+          "reasoning"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Minden feladathoz pontosan egy válasz, a feladat azonosítójával."
+    },
+    "diagnosticNotes": {
+      "maxItems": 100,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "skillId": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}-\\d{2}$",
+            "description": "A megadott készségazonosítók egyike."
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "skillId",
+          "note"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "suggestedNextSteps": {
+      "minItems": 1,
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    }
+  },
+  "required": [
+    "title",
+    "explanation",
+    "assumedPrerequisites",
+    "workedExamples",
+    "whyThisMatters",
+    "exerciseGroups",
+    "canChecklist",
+    "answers",
+    "diagnosticNotes",
+    "suggestedNextSteps"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "content": {
+      "minItems": 1,
+      "maxItems": 40,
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "text"
+              },
+              "value": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              }
+            },
+            "required": [
+              "type",
+              "value"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "inlineMath"
+              },
+              "value": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000,
+                "description": "KaTeX-kompatibilis LaTeX, $ jelek nélkül."
+              }
+            },
+            "required": [
+              "type",
+              "value"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "displayMath"
+              },
+              "value": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000,
+                "description": "Külön sorba kiemelt KaTeX-kompatibilis LaTeX, $ jelek nélkül."
+              }
+            },
+            "required": [
+              "type",
+              "value"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "figure"
+              },
+              "figure": {
+                "$ref": "#/$defs/figure"
+              },
+              "caption": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              }
+            },
+            "required": [
+              "type",
+              "figure"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "description": "Tartalmi részek sorban: szöveg, képlet vagy ábra."
+    },
+    "figure": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "plane"
+            },
+            "size": {
+              "description": "Az ábra szélessége; alapértelmezés: medium.",
+              "type": "string",
+              "enum": [
+                "small",
+                "medium",
+                "large"
+              ]
+            },
+            "xRange": {
+              "$ref": "#/$defs/range"
+            },
+            "yRange": {
+              "$ref": "#/$defs/range"
+            },
+            "axes": {
+              "type": "boolean"
+            },
+            "grid": {
+              "type": "boolean"
+            },
+            "equalScale": {
+              "description": "false csak adatgrafikonhoz, ahol a két tengely más mennyiséget mér; egyébként a két tengely egysége azonos.",
+              "type": "boolean"
+            },
+            "xLabel": {
+              "$ref": "#/$defs/label"
+            },
+            "yLabel": {
+              "$ref": "#/$defs/label"
+            },
+            "elements": {
+              "minItems": 1,
+              "maxItems": 60,
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/planeElement"
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "xRange",
+            "yRange",
+            "elements"
+          ],
+          "additionalProperties": false,
+          "description": "Geometriai ábra vagy koordináta-rendszer. Tengelyek nélküli ábránál a tartomány hagyjon kis margót az alakzat körül."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "barChart"
+            },
+            "size": {
+              "description": "Az ábra szélessége; alapértelmezés: medium.",
+              "type": "string",
+              "enum": [
+                "small",
+                "medium",
+                "large"
+              ]
+            },
+            "categories": {
+              "minItems": 1,
+              "maxItems": 24,
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/label"
+              }
+            },
+            "series": {
+              "minItems": 1,
+              "maxItems": 4,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "$ref": "#/$defs/label"
+                  },
+                  "values": {
+                    "minItems": 1,
+                    "maxItems": 24,
+                    "type": "array",
+                    "items": {
+                      "type": "number",
+                      "minimum": -1000000000,
+                      "maximum": 1000000000
+                    },
+                    "description": "Kategóriánként egy érték, a categories sorrendjében."
+                  }
+                },
+                "required": [
+                  "values"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "xLabel": {
+              "$ref": "#/$defs/label"
+            },
+            "yLabel": {
+              "$ref": "#/$defs/label"
+            },
+            "showValues": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "kind",
+            "categories",
+            "series"
+          ],
+          "additionalProperties": false,
+          "description": "Oszlopdiagram."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "pieChart"
+            },
+            "size": {
+              "description": "Az ábra szélessége; alapértelmezés: medium.",
+              "type": "string",
+              "enum": [
+                "small",
+                "medium",
+                "large"
+              ]
+            },
+            "slices": {
+              "minItems": 2,
+              "maxItems": 12,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "$ref": "#/$defs/label"
+                  },
+                  "value": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 1000000000
+                  }
+                },
+                "required": [
+                  "label",
+                  "value"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "showPercent": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "kind",
+            "slices"
+          ],
+          "additionalProperties": false,
+          "description": "Kördiagram."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "numberLine"
+            },
+            "size": {
+              "description": "Az ábra szélessége; alapértelmezés: medium.",
+              "type": "string",
+              "enum": [
+                "small",
+                "medium",
+                "large"
+              ]
+            },
+            "range": {
+              "$ref": "#/$defs/range"
+            },
+            "tickStep": {
+              "description": "A beosztás lépésköze; legfeljebb 60 beosztás.",
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 1000000
+            },
+            "points": {
+              "default": [],
+              "maxItems": 20,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "at": {
+                    "type": "number",
+                    "minimum": -1000000,
+                    "maximum": 1000000
+                  },
+                  "label": {
+                    "$ref": "#/$defs/label"
+                  },
+                  "open": {
+                    "description": "Üres karika.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "at"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "intervals": {
+              "default": [],
+              "maxItems": 6,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "from": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "minimum": -1000000,
+                        "maximum": 1000000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "null: −∞"
+                  },
+                  "to": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "minimum": -1000000,
+                        "maximum": 1000000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "null: +∞"
+                  },
+                  "fromClosed": {
+                    "type": "boolean"
+                  },
+                  "toClosed": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "from",
+                  "to"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "range"
+          ],
+          "additionalProperties": false,
+          "description": "Számegyenes."
+        }
+      ]
+    },
+    "range": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "number",
+          "minimum": -1000000,
+          "maximum": 1000000
+        },
+        {
+          "type": "number",
+          "minimum": -1000000,
+          "maximum": 1000000
+        }
+      ],
+      "description": "[min, max], ahol min < max.",
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 40,
+      "description": "Rövid sima szöveg, nem LaTeX, pl. \"A\", \"α\", \"60°\", \"5 cm\"."
+    },
+    "planeElement": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "shape": {
+              "type": "string",
+              "const": "point"
+            },
+            "at": {
+              "$ref": "#/$defs/point"
+            },
+            "label": {
+              "$ref": "#/$defs/label"
+            },
+            "open": {
+              "description": "Üres karika.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "shape",
+            "at"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "shape": {
+              "type": "string",
+              "const": "segment"
+            },
+            "from": {
+              "$ref": "#/$defs/point"
+            },
+            "to": {
+              "$ref": "#/$defs/point"
+            },
+            "label": {
+              "$ref": "#/$defs/label"
+            },
+            "dashed": {
+              "description": "Szaggatott vonal.",
+              "type": "boolean"
+            },
+            "ticks": {
+              "description": "Egyenlő hosszúságot jelölő vonalkák száma.",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 3
+            }
+          },
+          "required": [
+            "shape",
+            "from",
+            "to"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "shape": {
+              "type": "string",
+              "const": "line"
+            },
+            "through": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "$ref": "#/$defs/point"
+                },
+                {
+                  "$ref": "#/$defs/point"
+                }
+              ],
+              "description": "Két különböző pont az egyenesen.",
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "label": {
+              "$ref": "#/$defs/label"
+            },
+            "dashed": {
+              "description": "Szaggatott vonal.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "shape",
+            "through"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "shape": {
+              "type": "string",
+              "const": "vector"
+            },
+            "from": {
+              "$ref": "#/$defs/point"
+            },
+            "to": {
+              "$ref": "#/$defs/point"
+            },
+            "label": {
+              "$ref": "#/$defs/label"
+            }
+          },
+          "required": [
+            "shape",
+            "from",
+            "to"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "shape": {
+              "type": "string",
+              "const": "polygon"
+            },
+            "points": {
+              "minItems": 3,
+              "maxItems": 20,
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/point"
+              }
+            },
+            "label": {
+              "$ref": "#/$defs/label"
+            },
+            "filled": {
+              "description": "Halvány kitöltés.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "shape",
+            "points"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "shape": {
+              "type": "string",
+              "const": "circle"
+            },
+            "center": {
+              "$ref": "#/$defs/point"
+            },
+            "radius": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 1000000
+            },
+            "label": {
+              "$ref": "#/$defs/label"
+            },
+            "dashed": {
+              "description": "Szaggatott vonal.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "shape",
+            "center",
+            "radius"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "shape": {
+              "type": "string",
+              "const": "angle"
+            },
+            "vertex": {
+              "$ref": "#/$defs/point"
+            },
+            "from": {
+              "description": "Pont az egyik száron.",
+              "$ref": "#/$defs/point"
+            },
+            "to": {
+              "description": "Pont a másik száron.",
+              "$ref": "#/$defs/point"
+            },
+            "label": {
+              "$ref": "#/$defs/label"
+            },
+            "right": {
+              "description": "Derékszög jelölése.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "shape",
+            "vertex",
+            "from",
+            "to"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "shape": {
+              "type": "string",
+              "const": "function"
+            },
+            "expression": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "x változós kifejezés, pl. \"0.5*x^2 - 2\" vagy \"sin(x)\". Csak x, számok, + - * / ^, zárójel, pi, e és sin, cos, tan, sqrt, abs, ln, log, exp szerepelhet."
+            },
+            "domain": {
+              "description": "Az ábrázolt x-tartomány; elhagyva a teljes xRange.",
+              "$ref": "#/$defs/range"
+            },
+            "label": {
+              "$ref": "#/$defs/label"
+            },
+            "dashed": {
+              "description": "Szaggatott vonal.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "shape",
+            "expression"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "shape": {
+              "type": "string",
+              "const": "polyline"
+            },
+            "points": {
+              "minItems": 2,
+              "maxItems": 200,
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/point"
+              }
+            },
+            "label": {
+              "$ref": "#/$defs/label"
+            },
+            "dashed": {
+              "description": "Szaggatott vonal.",
+              "type": "boolean"
+            },
+            "markers": {
+              "description": "Jelölők a töréspontokon.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "shape",
+            "points"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "shape": {
+              "type": "string",
+              "const": "text"
+            },
+            "at": {
+              "$ref": "#/$defs/point"
+            },
+            "value": {
+              "$ref": "#/$defs/label"
+            }
+          },
+          "required": [
+            "shape",
+            "at",
+            "value"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "point": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "number",
+          "minimum": -1000000,
+          "maximum": 1000000
+        },
+        {
+          "type": "number",
+          "minimum": -1000000,
+          "maximum": 1000000
+        }
+      ],
+      "description": "[x, y]",
+      "minItems": 2,
+      "maxItems": 2
+    }
+  }
+}

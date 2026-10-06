@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { request as httpRequest } from "node:http";
 import test from "node:test";
-import { findSkill } from "../poc/curriculum.mjs";
-import { createAppServer } from "../server.mjs";
-import { parseWorksheetResponse, worksheetJsonSchema } from "../server/schemas.mjs";
-import { usefulnessMessages, worksheetMessages } from "../server/prompts.mjs";
+import { findSkill } from "../../web/curriculum.mjs";
+import { createAppServer } from "../../server.mjs";
+import { parseWorksheetResponse, worksheetJsonSchema } from "../../server/schemas.mjs";
+import { usefulnessMessages, worksheetMessages } from "../../server/prompts.mjs";
 
 async function withServer(options, run) {
   const server = createAppServer(options);

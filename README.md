@@ -29,25 +29,34 @@ A fa **nem az évfolyamokat követi**, hanem a **logikai függőségeket**: egy 
 9. osztályos anyag ugyanabba a szintbe kerül, vagy hogy egy 6. osztályos fogalom csak jóval
 később válik egy 12. osztályos készség előfeltételévé.
 
-## Helyi POC futtatása
+## Helyi futtatás
 
-**Követelmény:** Node.js 20 vagy újabb. A POC jelenleg egyetlen, helyi felhasználóra készült: a tudásszintek, profil, érdeklődési körök és kiválasztott modell a böngésző `localStorage` tárában maradnak. Nincs felhasználói fiók vagy háttéradatbázis.
+**Követelmény:** .NET 10 SDK és Node.js 24. A Node a KaTeX-csomag telepítéséhez, a böngészős modulok tesztjeihez és a tantervi adatok újraépítéséhez kell. Az alkalmazás jelenleg egyetlen, helyi felhasználóra készült: a tudásszintek, profil, érdeklődési körök és kiválasztott modell a böngésző `localStorage` tárában maradnak. Nincs felhasználói fiók vagy háttéradatbázis.
 
 ```powershell
-npm install
+npm ci
+dotnet run --project src/MathRecap.Api
+```
+
+Az alkalmazás alapértelmezett címe `http://127.0.0.1:3000`. A fa, az onboarding, a profil és a kézi tudásszint-kezelés AI nélkül is használható. Az AI-műveletek alapértelmezett modellje az `openai/gpt-6-luna`. Az OpenRouter-modellt a fejléc **Beállítások** ablakában lehet másik modellre állítani a betöltött modellkatalógusból; a választás helyben megmarad.
+
+Az AI-végpontok (modellkatalógus, „Miért jó neked”, feladatlap) még nem költöztek át a .NET-kiszolgálóra. Addig az AI-műveletekhez a régi Node-kiszolgálót kell indítani, ugyanazon a címen:
+
+```powershell
 $env:OPENROUTER_API_KEY = "sajat-openrouter-kulcs"
 npm start
 ```
 
-Az alkalmazás alapértelmezett címe `http://127.0.0.1:3000`. API-kulcs nélkül is használható a fa, az onboarding, a profil és a kézi tudásszint-kezelés; az AI-műveletek érthető konfigurációs hibát jeleznek. Az AI-műveletek alapértelmezett modellje az `openai/gpt-6-luna`. Az OpenRouter-modellt a fejléc **Beállítások** ablakában lehet másik modellre állítani a betöltött modellkatalógusból; a választás helyben megmarad.
-
 Hasznos parancsok:
 
 ```powershell
-npm start                 # helyi kiszolgáló
-npm test                  # mockolt, hálózatmentes tesztek
-npm run build:data        # a tantervi adatok újraépítése és ellenőrzése
+dotnet run --project src/MathRecap.Api   # helyi kiszolgáló
+dotnet test                              # a kiszolgáló tesztjei
+npm test                                 # a böngészős modulok mockolt, hálózatmentes tesztjei
+npm run build:data                       # a tantervi adatok (web/data/curriculum.json) újraépítése és ellenőrzése
 ```
+
+Könyvtárszerkezet: `web/` – a böngészőnek kiszolgált front end; `src/MathRecap.Api/` – az ASP.NET Core kiszolgáló; `tests/` – a .NET- és a JS-tesztek, valamint közös tesztesetek; `tools/` – az adatgenerátor; `agak/` – a tanterv forrása; `docs/` – tervek és leírások.
 
 ### Feladatlap és nyomtatás
 
