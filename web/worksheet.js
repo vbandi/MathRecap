@@ -8,6 +8,7 @@ import { needsInlineMathSeparator, orderedProblemPairs, studentProblems, workshe
 const skill = findSkill(new URLSearchParams(window.location.search).get("skill"));
 const context = document.getElementById("skill-context");
 const requestInput = document.getElementById("worksheet-request");
+const DEFAULT_REQUEST = "Kérek fokozatos, önálló gyakorlást.";
 const generateButton = document.getElementById("generate-button");
 const retryButton = document.getElementById("retry-button");
 const status = document.getElementById("request-status");
@@ -176,8 +177,8 @@ function hideWorksheet() {
 
 async function generate() {
   if (!skill) return;
-  const request = requestInput.value.trim();
-  if (!request) { setRequestState("error", "Írd le röviden, mit gyakorolnál."); return; }
+  // An empty request asks for the general practice sheet the placeholder suggests.
+  const request = requestInput.value.trim() || DEFAULT_REQUEST;
   setRequestState("loading", "Feladatlap készül...");
   try {
     const saved = await api("POST", "/api/worksheets", { request, skillId: skill.id });

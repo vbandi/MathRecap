@@ -46,6 +46,30 @@ function centroid(points) {
   return points.reduce(([sumX, sumY], [x, y]) => [sumX + x / points.length, sumY + y / points.length], [0, 0]);
 }
 
+// Screen directions from a plane point along everything drawn from it: polygon sides, segments, vectors
+// and angle arms.
+function attachedDirections(at, figure, toScreen) {
+  const isAt = ([x, y]) => x === at[0] && y === at[1];
+  const ends = [];
+  for (const other of figure.elements) {
+    if (other.shape === "polygon") {
+      other.points.forEach((point, index) => {
+        if (isAt(point)) ends.push(other.points.at(index - 1), other.points[(index + 1) % other.points.length]);
+      });
+    } else if (other.shape === "segment" || other.shape === "vector") {
+      if (isAt(other.from)) ends.push(other.to);
+      if (isAt(other.to)) ends.push(other.from);
+    } else if (other.shape === "angle" && isAt(other.vertex)) {
+      ends.push(other.from, other.to);
+    }
+  }
+  const [x, y] = toScreen(at);
+  return ends.filter((end) => !isAt(end)).map((end) => {
+    const [endX, endY] = toScreen(end);
+    return unit(endX - x, endY - y);
+  });
+}
+
 function arrowHead(parent, [x, y], [dx, dy], color = INK, size = 9) {
   const [ux, uy] = unit(dx, dy);
   const back = [x - ux * size, y - uy * size];
@@ -105,11 +129,17 @@ function renderPlaneElement(group, clipped, element, layout, figure) {
       const [x, y] = toScreen(element.at);
       draw("circle", { cx: round(x), cy: round(y), r: 3.6, fill: element.open ? "#fff" : INK, stroke: INK, "stroke-width": 1.5 }, group);
       if (!element.label) return;
-      // A polygon vertex is labelled outside the polygon, away from its angle marks.
-      const polygon = figure.elements.find((other) => other.shape === "polygon" && other.points.some(([px, py]) => px === element.at[0] && py === element.at[1]));
-      if (polygon) {
-        const [cx, cy] = centroid(polygon.points.map(toScreen));
-        const [ux, uy] = unit(x - cx, y - cy);
+      // A point where sides, segments or angle arms meet is labelled on the side away from them, so the
+      // label stays clear of the lines and the angle marks.
+      const directions = attachedDirections(element.at, figure, toScreen);
+      const [awayX, awayY] = directions.reduce(([sumX, sumY], [dx, dy]) => [sumX - dx, sumY - dy], [0, 0]);
+      if (Math.hypot(awayX, awayY) > .2) {
+        const [ux, uy] = unit(awayX, awayY);
+        label(group, x + ux * 13, y + uy * 13, element.label, { anchor: "middle", baseline: "middle", weight: 600 });
+      } else if (directions.length) {
+        // The lines pass straight through the point: label it beside them, on the upper side.
+        const [dx, dy] = directions[0];
+        const [ux, uy] = dx > 0 ? [dy, -dx] : [-dy, dx];
         label(group, x + ux * 13, y + uy * 13, element.label, { anchor: "middle", baseline: "middle", weight: 600 });
       } else label(group, x + 7, y - 7, element.label, { weight: 600 });
       return;
