@@ -1,6 +1,5 @@
 export const LOCAL_STATE_KEY = "mathrecap.local-state";
 export const LOCAL_STATE_VERSION = 3;
-export const DEFAULT_MODEL_ID = "openai/gpt-6-luna";
 
 const EMPTY_PROFILE = Object.freeze({ interests: "", background: "", goal: "" });
 // Storage keys written by versions before 3 used Hungarian names.
@@ -23,9 +22,8 @@ function usefulnessCacheFor(source = {}) {
   )));
 }
 
-export function usefulnessFingerprint(profile, selectedModel) {
+export function usefulnessFingerprint(profile) {
   return JSON.stringify({
-    modelId: selectedModel ?? "",
     interests: profile?.interests ?? "",
     background: profile?.background ?? "",
     goal: profile?.goal ?? "",
@@ -34,7 +32,7 @@ export function usefulnessFingerprint(profile, selectedModel) {
 
 export function usefulnessDisplayState(state, skillId, refreshFailed = false) {
   const cached = state?.usefulnessCache?.[skillId];
-  const isCurrent = cached?.fingerprint === usefulnessFingerprint(state?.profile, state?.selectedModel);
+  const isCurrent = cached?.fingerprint === usefulnessFingerprint(state?.profile);
   return {
     text: isCurrent ? cached.text : null,
     refreshFailed: Boolean(isCurrent && refreshFailed),
@@ -46,7 +44,6 @@ export function emptyLocalState(skillIds) {
     version: LOCAL_STATE_VERSION,
     mastery: masteryFor(skillIds),
     profile: profileFor(),
-    selectedModel: DEFAULT_MODEL_ID,
     onboardingComplete: false,
     usefulnessCache: {},
   };
@@ -69,7 +66,6 @@ function migrateLocalState(payload, skillIds) {
     version: LOCAL_STATE_VERSION,
     mastery: masteryFor(skillIds, source.mastery),
     profile: profileFor(source.profile),
-    selectedModel: typeof source.selectedModel === "string" && source.selectedModel ? source.selectedModel : DEFAULT_MODEL_ID,
     onboardingComplete: source.onboardingComplete === true,
     usefulnessCache: usefulnessCacheFor(source.usefulnessCache),
   };
@@ -99,14 +95,12 @@ export function setManualMastery(state, skillIds, skillId, level) {
   return { ...state, mastery: { ...state.mastery, [skillId]: level } };
 }
 
-export function updateProfileAndModel(state, profile, selectedModel) {
+export function updateProfile(state, profile) {
   const nextProfile = profileFor(profile);
-  const nextModel = typeof selectedModel === "string" && selectedModel ? selectedModel : null;
-  const changed = usefulnessFingerprint(state.profile, state.selectedModel) !== usefulnessFingerprint(nextProfile, nextModel);
+  const changed = usefulnessFingerprint(state.profile) !== usefulnessFingerprint(nextProfile);
   return {
     ...state,
     profile: nextProfile,
-    selectedModel: nextModel,
     usefulnessCache: changed ? {} : state.usefulnessCache,
   };
 }
@@ -117,7 +111,7 @@ export function cacheUsefulness(state, skillId, text) {
     ...state,
     usefulnessCache: {
       ...state.usefulnessCache,
-      [skillId]: { text: text.trim(), fingerprint: usefulnessFingerprint(state.profile, state.selectedModel) },
+      [skillId]: { text: text.trim(), fingerprint: usefulnessFingerprint(state.profile) },
     },
   };
 }

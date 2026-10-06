@@ -10,16 +10,6 @@
         "src/MathRecap.Api"
       ],
       "port": 3000
-    },
-    {
-      "name": "node-legacy",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": [
-        "run",
-        "start"
-      ],
-      "port": 3000,
-      "autoPort": true
     }
   ]
 }

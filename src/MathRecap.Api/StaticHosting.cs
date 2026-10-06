@@ -19,15 +19,24 @@ public static class StaticHosting
 
         var webRoot = OpenFolder(app, "WebRoot");
         app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = webRoot });
-        app.UseStaticFiles(new StaticFileOptions { FileProvider = webRoot, ContentTypeProvider = contentTypes });
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            FileProvider = webRoot,
+            ContentTypeProvider = contentTypes,
+            // Revalidated on every load, so a browser never runs a front end older than the API it calls.
+            OnPrepareResponse = context => context.Context.Response.Headers.CacheControl = "no-cache",
+        });
         app.UseStaticFiles(new StaticFileOptions { FileProvider = OpenFolder(app, "KatexRoot"), RequestPath = "/vendor/katex", ContentTypeProvider = contentTypes });
     }
 
-    private static PhysicalFileProvider OpenFolder(WebApplication app, string key)
+    // The full path of a StaticHosting folder ("WebRoot" or "KatexRoot").
+    public static string FolderPath(IConfiguration configuration, IHostEnvironment environment, string key)
     {
-        var configured = app.Configuration[$"StaticHosting:{key}"] ?? throw new InvalidOperationException($"StaticHosting:{key} is not configured.");
-        var path = Path.GetFullPath(configured, app.Environment.ContentRootPath);
+        var configured = configuration[$"StaticHosting:{key}"] ?? throw new InvalidOperationException($"StaticHosting:{key} is not configured.");
+        var path = Path.GetFullPath(configured, environment.ContentRootPath);
         if (!Directory.Exists(path)) throw new DirectoryNotFoundException($"StaticHosting:{key} points to a missing folder: {path} (KaTeX comes from 'npm ci').");
-        return new PhysicalFileProvider(path);
+        return path;
     }
+
+    private static PhysicalFileProvider OpenFolder(WebApplication app, string key) => new(FolderPath(app.Configuration, app.Environment, key));
 }

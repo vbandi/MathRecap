@@ -14,6 +14,11 @@
     <ProjectReference Include="..\..\src\MathRecap.Api\MathRecap.Api.csproj" />
   </ItemGroup>
 
+  <!-- Test cases shared with the JS tests, or recorded from the previous Node server. -->
+  <ItemGroup>
+    <None Include="..\fixtures\**\*.json" LinkBase="fixtures" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>

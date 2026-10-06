@@ -10,9 +10,9 @@
 
 ## Megvalósult POC-döntések
 
-- **Egy helyi felhasználó:** nincs fiók, szinkron vagy megosztott előzmény. A profil, a kiválasztott OpenRouter-modell, az onboarding állapota és az önértékelt tudásszintek verziózott böngészőbeli `localStorage`-ban maradnak.
+- **Egy helyi felhasználó:** nincs fiók, szinkron vagy megosztott előzmény. A profil, az onboarding állapota és az önértékelt tudásszintek verziózott böngészőbeli `localStorage`-ban maradnak.
 - **Tudásszint:** mindig kézi önértékelés. A feladatlap elkészítése, kinyomtatása vagy megoldása nem emel és nem javasol automatikus szintet; a zárolás csak a mentett előfeltétel-szintekből számítódik.
-- **AI-beállítás:** az OpenRouter modellkatalógusa a helyi szerveren keresztül tölthető be, a választott modell az előbbi helyi állapot része. Modell csak AI-művelethez szükséges.
+- **AI-beállítás:** az OpenRouter-modellt a helyi kiszolgáló beállítása választja, a felületen nincs modellválasztó. API-kulcs csak AI-művelethez szükséges.
 - **Feladatlap-kérés:** a készséghez egyetlen, szabadon szerkeszthető magyar kérésmező tartozik. Nincs darabszám-, nehézség-, idő- vagy előfeltétel-kapcsoló.
 - **Feladatlap és nyomtatás:** a tanulói **Feladatlap** és a **Megoldókulcs** külön HTML-nézet, külön nyomtatási paranccsal. Új generálás új feladatlapot cserél le; nincs generált feladatlap-előzmény.
 

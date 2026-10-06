@@ -148,14 +148,13 @@ function setRequestState(nextState, message = "") {
 
 async function generate() {
   if (!skill) return;
-  if (!state.selectedModel) { setRequestState("error", "Előbb válassz OpenRouter modellt a fa Beállítások ablakában."); return; }
   const request = requestInput.value.trim();
   if (!request) { setRequestState("error", "Írd le röviden, mit gyakorolnál."); return; }
   setRequestState("loading", "Feladatlap készül...");
   try {
     const response = await fetch("/api/worksheets", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ modelId: state.selectedModel, profile: state.profile, request, skillId: skill.id }),
+      body: JSON.stringify({ profile: state.profile, request, skillId: skill.id }),
     });
     const payload = await response.json();
     if (!response.ok) throw new Error(payload?.error?.message || "A feladatlap most nem készült el.");

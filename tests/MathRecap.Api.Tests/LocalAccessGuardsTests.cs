@@ -1,11 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc.Testing;
+using MathRecap.Api.Tests.TestHost;
 
 namespace MathRecap.Api.Tests;
 
-public sealed class LocalAccessGuardsTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+public sealed class LocalAccessGuardsTests(MathRecapFactory factory) : IClassFixture<MathRecapFactory>
 {
     private readonly HttpClient client = factory.CreateClient();
 

@@ -2,9 +2,9 @@
 
 MathRecap is an interactive skill tree for the Hungarian secondary-school mathematics curriculum (grades 5-12). Instead of following school years, it maps the prerequisite relationships between 190 concepts, so learners can see what they know, what is available next, and what each topic unlocks.
 
-The interface and curriculum content are currently in Hungarian. Learners set their own mastery level, inspect prerequisites and follow-up topics, and can create printable AI-assisted practice worksheets when an OpenRouter model is configured. Generated examples can follow the learner's stated interests, making practice more personally relevant.
+The interface and curriculum content are currently in Hungarian. Learners set their own mastery level, inspect prerequisites and follow-up topics, and can create printable AI-assisted practice worksheets when an OpenRouter API key is configured on the local server. Generated examples can follow the learner's stated interests, making practice more personally relevant.
 
-**Current scope:** MathRecap is a single-user solution. Mastery levels, learner profile, interests, and model choice are stored in the user's browser rather than in an account system or backend database.
+**Current scope:** MathRecap is a single-user solution. Mastery levels, learner profile, and interests are stored in the user's browser rather than in an account system or backend database. The AI model is chosen in the server configuration.
 
 ## Screenshots
 
@@ -31,28 +31,22 @@ később válik egy 12. osztályos készség előfeltételévé.
 
 ## Helyi futtatás
 
-**Követelmény:** .NET 10 SDK és Node.js 24. A Node a KaTeX-csomag telepítéséhez, a böngészős modulok tesztjeihez és a tantervi adatok újraépítéséhez kell. Az alkalmazás jelenleg egyetlen, helyi felhasználóra készült: a tudásszintek, profil, érdeklődési körök és kiválasztott modell a böngésző `localStorage` tárában maradnak. Nincs felhasználói fiók vagy háttéradatbázis.
+**Követelmény:** .NET 10 SDK és Node.js 24. A Node csak a KaTeX-csomag telepítéséhez, a böngészős modulok tesztjeihez és a tantervi adatok újraépítéséhez kell. Az alkalmazás jelenleg egyetlen, helyi felhasználóra készült: a tudásszintek, a profil és az érdeklődési körök a böngésző `localStorage` tárában maradnak. Nincs felhasználói fiók vagy háttéradatbázis.
 
 ```powershell
 npm ci
+$env:OPENROUTER_API_KEY = "sajat-openrouter-kulcs"
 dotnet run --project src/MathRecap.Api
 ```
 
-Az alkalmazás alapértelmezett címe `http://127.0.0.1:3000`. A fa, az onboarding, a profil és a kézi tudásszint-kezelés AI nélkül is használható. Az AI-műveletek alapértelmezett modellje az `openai/gpt-6-luna`. Az OpenRouter-modellt a fejléc **Beállítások** ablakában lehet másik modellre állítani a betöltött modellkatalógusból; a választás helyben megmarad.
-
-Az AI-végpontok (modellkatalógus, „Miért jó neked”, feladatlap) még nem költöztek át a .NET-kiszolgálóra. Addig az AI-műveletekhez a régi Node-kiszolgálót kell indítani, ugyanazon a címen:
-
-```powershell
-$env:OPENROUTER_API_KEY = "sajat-openrouter-kulcs"
-npm start
-```
+Az alkalmazás alapértelmezett címe `http://127.0.0.1:3000`. A fa, az onboarding, a profil és a kézi tudásszint-kezelés AI nélkül is használható. Az AI-műveletekhez („Miért jó neked”, feladatlap) OpenRouter API-kulcs kell: az `OPENROUTER_API_KEY` környezeti változóból vagy az `OpenRouter:ApiKey` beállításból. A modellt a kiszolgáló beállítása választja: az `OpenRouter:Model` értéke a `src/MathRecap.Api/appsettings.json` fájlban alapértelmezetten `openai/gpt-6-luna`, és például az `OpenRouter__Model` környezeti változóval írható felül. Ugyanitt állítható az `OpenRouter:BaseUrl` és a kérésenkénti `OpenRouter:Timeout` is.
 
 Hasznos parancsok:
 
 ```powershell
 dotnet run --project src/MathRecap.Api   # helyi kiszolgáló
 dotnet test                              # a kiszolgáló tesztjei
-npm test                                 # a böngészős modulok mockolt, hálózatmentes tesztjei
+npm test                                 # a böngészős modulok hálózatmentes tesztjei
 npm run build:data                       # a tantervi adatok (web/data/curriculum.json) újraépítése és ellenőrzése
 ```
 
@@ -64,7 +58,7 @@ Egy készség paneljének **Gyakorlás** gombja külön feladatlap-oldalt nyit. 
 
 ### Biztonsági határ
 
-Az `OPENROUTER_API_KEY` kizárólag a helyi Node-szerver környezetében marad; a böngészőnek nem adódik át, és a hibaüzenetek sem tartalmazhatják. A modellnek küldött profil- és szabad szöveges kérés elhatárolt, nem megbízható adatként szerepel. A szerver a strukturált választ ellenőrzi, a felület pedig nem szúr be modell-szöveget HTML-ként.
+Az OpenRouter API-kulcsa kizárólag a helyi .NET-kiszolgálón marad; a böngészőnek nem adódik át, a hibaüzenetek és a naplók sem tartalmazhatják. A modellnek küldött profil- és szabad szöveges kérés elhatárolt, nem megbízható adatként szerepel. A kiszolgáló a modell válaszát a `src/MathRecap.Api/Ai/Schemas/` JSON-sémái és a további szabályok (például ábrák, feladat–válasz párok, diagnosztikai készségek) szerint ellenőrzi, érvénytelen feladatlapnál egyszer javítást kér, a felület pedig nem szúr be modell-szöveget HTML-ként.
 
 ## Hatókör
 

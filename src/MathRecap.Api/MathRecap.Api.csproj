@@ -5,6 +5,16 @@
     <RepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\'))</RepoRoot>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="LateApexEarlySpeed.Json.Schema" />
+  </ItemGroup>
+
+  <!-- JSON Schemas of the request bodies and the model output, loaded by file name. -->
+  <ItemGroup>
+    <Content Remove="Ai\Schemas\*.json;RequestSchemas\*.json" />
+    <EmbeddedResource Include="Ai\Schemas\*.json;RequestSchemas\*.json" LogicalName="%(Filename)%(Extension)" />
+  </ItemGroup>
+
   <!-- In the repo the app reads the front end and KaTeX in place (see appsettings.Development.json);
        a published app carries its own copies, at the paths appsettings.json expects. -->
   <ItemGroup>

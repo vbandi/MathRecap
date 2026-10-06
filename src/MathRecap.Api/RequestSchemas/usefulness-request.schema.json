@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "properties": {
+    "profile": { "$ref": "#/$defs/profile" },
+    "skillId": { "type": "string" }
+  },
+  "required": ["profile", "skillId"],
+  "additionalProperties": false,
+  "$defs": {
+    "profile": {
+      "type": "object",
+      "properties": {
+        "interests": { "type": "string", "maxLength": 500, "default": "" },
+        "background": { "type": "string", "maxLength": 500, "default": "" },
+        "goal": { "type": "string", "maxLength": 500, "default": "" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

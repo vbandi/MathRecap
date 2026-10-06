@@ -4,11 +4,9 @@
   "type": "module",
   "scripts": {
     "build:data": "node tools/build-data.mjs",
-    "start": "node server.mjs",
     "test": "node --test \"tests/web/**/*.test.mjs\""
   },
   "dependencies": {
-    "katex": "^0.16.22",
-    "zod": "^4.1.12"
+    "katex": "^0.16.22"
   }
 }

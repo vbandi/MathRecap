@@ -1,7 +1,7 @@
 "use strict";
 
 import { dependentsOf, skills } from "./curriculum.mjs";
-import { cacheUsefulness, calibrationProposal, loadLocalState, recomputeLocks, saveLocalState, setManualMastery, undoCalibrationProposal, updateProfileAndModel, usefulnessDisplayState } from "./state.js";
+import { cacheUsefulness, calibrationProposal, loadLocalState, recomputeLocks, saveLocalState, setManualMastery, undoCalibrationProposal, updateProfile, usefulnessDisplayState } from "./state.js";
 
 const BRANCHES = {
   LOG: { name: "Logika", color: "#6C5CE7", darkText: false },
@@ -616,7 +616,7 @@ function renderPanel() {
     ? `<div class="usefulness-text">${esc(usefulnessState.text)}</div>${usefulnessState.refreshFailed ? '<div class="usefulness-error" role="alert">Nem sikerült frissíteni az indoklást. <button class="text-button" data-act="usefulness-retry">Próbáld újra</button></div>' : ""}<button class="text-button" data-act="usefulness">Mást kérek</button>`
     : usefulnessFallbackSkillId === n.id
       ? `<div class="usefulness-error" role="alert">Most nem sikerült valós példát készíteni ehhez a készséghez. <button class="text-button" data-act="usefulness-retry">Próbáld újra</button></div>`
-    : `<em>${localState.selectedModel ? "Kérhetsz rövid, személyre szabott indoklást." : "Állíts be egy modellt a személyre szabott indokláshoz."}</em><button class="text-button" data-act="usefulness" ${localState.selectedModel ? "" : "disabled"}>Miért jó nekem?</button>`;
+    : `<em>Kérhetsz rövid, személyre szabott indoklást.</em><button class="text-button" data-act="usefulness">Miért jó nekem?</button>`;
   panelBody.innerHTML = `
     <h2>${esc(n.name)}</h2>
     <div class="sub"><span style="color:${BRANCHES[n.branch].color}">●</span> ${BRANCHES[n.branch].name} ága ·
@@ -665,7 +665,6 @@ panelBody.addEventListener("click", (e) => {
 });
 
 async function generateUsefulness(skill) {
-  if (!localState.selectedModel) return;
   usefulnessFallbackSkillId = null;
   usefulnessRefreshFailedSkillId = null;
   panelBody.querySelector(".ai").innerHTML = `<div class="lbl">Miért jó neked</div><em>Indoklás készül…</em>`;
@@ -673,7 +672,7 @@ async function generateUsefulness(skill) {
     const response = await fetch("/api/usefulness", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ modelId: localState.selectedModel, profile: localState.profile, skillId: skill.id }),
+      body: JSON.stringify({ profile: localState.profile, skillId: skill.id }),
     });
     const payload = await response.json();
     if (!response.ok) throw new Error(payload?.error?.message || "Az indoklás most nem érhető el.");
@@ -712,39 +711,6 @@ const onboardingBody = document.getElementById("onboarding-body");
 const settingsDialog = document.getElementById("settings-dialog");
 const settingsBody = document.getElementById("settings-body");
 let onboarding = null;
-let modelCatalog = [];
-let modelCatalogMessage = "";
-let modelSearchQuery = "";
-
-function matchingModels(query) {
-  const normalizedQuery = query.trim().toLocaleLowerCase("hu");
-  if (!normalizedQuery) return modelCatalog;
-  return modelCatalog.filter((model) => `${model.name} ${model.id}`.toLocaleLowerCase("hu").includes(normalizedQuery));
-}
-
-function modelResults(query, selectedModel) {
-  const matches = matchingModels(query);
-  if (!matches.length) return '<div class="model-empty">Nincs találat.</div>';
-  return matches.slice(0, 50).map((model) => `<div class="model-option" role="option" data-model-id="${esc(model.id)}" aria-selected="${model.id === selectedModel}">${esc(model.name)} <code>${esc(model.id)}</code></div>`).join("");
-}
-
-function modelStatus(query) {
-  if (modelCatalogMessage) return modelCatalogMessage;
-  const count = matchingModels(query).length;
-  return query.trim() ? `${count} találat` : `${count} modell`;
-}
-
-function refreshModelResults({ open = true } = {}) {
-  const search = settingsBody.querySelector("#model-search");
-  const selectedModel = settingsBody.querySelector("[name=selectedModel]").value;
-  const results = settingsBody.querySelector("#model-results");
-  const status = settingsBody.querySelector("#model-status");
-  modelSearchQuery = search.value;
-  results.innerHTML = modelResults(modelSearchQuery, selectedModel);
-  results.hidden = !open;
-  search.setAttribute("aria-expanded", String(open));
-  status.textContent = modelStatus(search.value);
-}
 
 function profileFields(profile) {
   return `
@@ -839,67 +805,27 @@ onboardingBody.addEventListener("click", (event) => {
 });
 onboardingDialog.addEventListener("cancel", (event) => event.preventDefault());
 
-async function loadModelCatalog() {
-  modelCatalogMessage = "Modellek betöltése…";
-  renderSettings();
-  try {
-    const response = await fetch("/api/models");
-    const contentType = response.headers.get("content-type") || "";
-    if (!contentType.includes("application/json")) {
-      throw new Error("A modellkatalógus API nem érhető el. Indítsd az alkalmazást az npm start paranccsal, majd a http://127.0.0.1:3000 címet nyisd meg.");
-    }
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload?.error?.message || "A modelllista most nem érhető el.");
-    modelCatalog = payload.models;
-    modelCatalogMessage = modelCatalog.length ? "" : "A modelllista üres.";
-  } catch (error) {
-    modelCatalogMessage = error.message || "A modelllista most nem érhető el.";
-  }
-  if (settingsDialog.open) renderSettings();
-}
-
 function renderSettings() {
-  const selectedModel = localState.selectedModel;
-  const selected = modelCatalog.find((model) => model.id === selectedModel);
   settingsBody.innerHTML = `
     <h2 id="settings-title">Beállítások</h2>
-    <p>A profil opcionális. Modell csak AI-műveletekhez kell.</p>
+    <p>A profil opcionális.</p>
     ${profileFields(localState.profile)}
-    <div class="field"><label for="model-search">OpenRouter modell</label><div class="model-picker"><input id="model-search" type="search" role="combobox" aria-controls="model-results" aria-expanded="false" aria-autocomplete="list" placeholder="Keress név vagy azonosító alapján" autocomplete="off" value="${esc(modelSearchQuery)}"><input type="hidden" name="selectedModel" value="${esc(selectedModel || "")}"><div id="model-results" class="model-results" role="listbox" hidden>${modelResults(modelSearchQuery, selectedModel)}</div></div><div class="selected-model" id="selected-model-label">${selected ? `Kiválasztva: ${esc(selected.name)} <code>${esc(selected.id)}</code>` : selectedModel ? `Kiválasztva: <code>${esc(selectedModel)}</code>` : "Nincs kiválasztva."}</div><div class="status" id="model-status">${esc(modelStatus(modelSearchQuery))}</div></div>
     <div class="modal-actions"><button class="ghost" data-settings="cancel">Mégse</button><button data-settings="save">Mentés</button></div>`;
 }
 
 document.getElementById("settings-button").addEventListener("click", () => {
   renderSettings();
   settingsDialog.showModal();
-  loadModelCatalog();
-});
-settingsBody.addEventListener("input", (event) => {
-  if (event.target.id === "model-search") refreshModelResults();
-});
-settingsBody.addEventListener("focusin", (event) => {
-  if (event.target.id === "model-search") refreshModelResults();
 });
 settingsBody.addEventListener("click", (event) => {
-  const modelOption = event.target.closest("[data-model-id]");
-  if (modelOption) {
-    const modelId = modelOption.dataset.modelId;
-    const model = modelCatalog.find((item) => item.id === modelId);
-    settingsBody.querySelector("[name=selectedModel]").value = modelId;
-    settingsBody.querySelector("#selected-model-label").innerHTML = `Kiválasztva: ${esc(model.name)} <code>${esc(model.id)}</code>`;
-    settingsBody.querySelector("#model-results").hidden = true;
-    settingsBody.querySelector("#model-search").setAttribute("aria-expanded", "false");
-    return;
-  }
   const action = event.target.closest("[data-settings]")?.dataset.settings;
   if (action === "cancel") return settingsDialog.close();
   if (action === "save") {
-    localState = updateProfileAndModel(localState, profileFrom(settingsBody), settingsBody.querySelector("[name=selectedModel]").value || null);
+    localState = updateProfile(localState, profileFrom(settingsBody));
     persistLocalState();
     settingsDialog.close();
   }
 });
-
 // ---------------------------------------------------------------- fejléc
 
 const chips = document.getElementById("chips");

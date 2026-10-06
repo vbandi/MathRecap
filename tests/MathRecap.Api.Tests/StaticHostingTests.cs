@@ -1,10 +1,10 @@
 using System.Net;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc.Testing;
+using MathRecap.Api.Tests.TestHost;
 
 namespace MathRecap.Api.Tests;
 
-public sealed class StaticHostingTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+public sealed class StaticHostingTests(MathRecapFactory factory) : IClassFixture<MathRecapFactory>
 {
     private readonly HttpClient client = factory.CreateClient();
 
@@ -37,6 +37,25 @@ public sealed class StaticHostingTests(WebApplicationFactory<Program> factory) :
         Assert.Equal(charSet, response.Content.Headers.ContentType?.CharSet);
     }
 
+    [Theory]
+    [InlineData("/")]
+    [InlineData("/tree.js")]
+    [InlineData("/worksheet.html")]
+    public async Task FrontEndFilesAreRevalidatedOnEveryLoad(string path)
+    {
+        var response = await client.GetAsync(path, TestContext.Current.CancellationToken);
+
+        Assert.True(response.Headers.CacheControl?.NoCache);
+    }
+
+    [Fact]
+    public async Task WorksheetPageHasAnAnswerKeyView()
+    {
+        var page = await client.GetStringAsync("/worksheet.html", TestContext.Current.CancellationToken);
+
+        Assert.Contains("Megoldókulcs", page);
+    }
+
     // Sent through the test server directly, because HttpClient would normalize these paths.
     // Kestrel leaves an encoded slash (%2F) undecoded, so it reaches the app as in these paths.
     [Theory]
@@ -44,7 +63,6 @@ public sealed class StaticHostingTests(WebApplicationFactory<Program> factory) :
     [InlineData("/..%2Fpackage.json")]
     [InlineData("/..%2fpackage.json")]
     [InlineData("/..\\package.json")]
-    [InlineData("/..%2fserver.mjs")]
     [InlineData("/vendor/katex/../package.json")]
     [InlineData("/vendor/katex/../../../package.json")]
     [InlineData("/vendor/katex/..%2F..%2F..%2Fpackage.json")]

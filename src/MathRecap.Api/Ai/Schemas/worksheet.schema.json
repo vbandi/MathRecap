@@ -136,7 +136,7 @@
         "properties": {
           "skillId": {
             "type": "string",
-            "pattern": "^[A-Z]{3}-\\d{2}$",
+            "pattern": "^[A-Z]{3}-[0-9]{2}$",
             "description": "A megadott készségazonosítók egyike."
           },
           "note": {
