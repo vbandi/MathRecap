@@ -2,7 +2,7 @@
 
 import { dependentsOf, skills } from "./curriculum.mjs";
 import { mountAccountMenu, showNotice } from "./session.js";
-import { calibrationProposal, completeOnboarding, createLevelSaver, levelChanges, loadLearner, recomputeLocks, requestUsefulness, sameProfile, saveLevels, saveProfile } from "./state.js";
+import { calibrationProposal, completeOnboarding, createLevelSaver, levelChanges, loadLearner, recomputeLocks, requestUsefulness, sameProfile, saveLevels, saveProfile, storedUsefulness } from "./state.js";
 
 const BRANCHES = {
   LOG: { name: "Logika", color: "#6C5CE7", darkText: false },
@@ -138,8 +138,11 @@ const levelSaver = createLevelSaver({
     showNotice(`A tudásszint mentése nem sikerült, ezért visszaállt a korábbi érték. ${error.message}`);
   },
 });
-// "Why it is useful for you" texts shown in this visit, by skill ID.
+// "Why it is useful for you" texts shown in this visit, by skill ID, and the skills whose stored text was
+// already looked up. Both are for the current profile; profileVersion counts its changes.
 const usefulnessTexts = new Map();
+const usefulnessLookedUp = new Set();
+let profileVersion = 0;
 
 function refreshLocks() {
   const mastery = levelSaver.levels;
@@ -590,8 +593,13 @@ function esc(s) {
   return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 }
 function masteryPips(level, branch) {
-  return `<span class="pips">${[0, 1, 2, 3, 4]
-    .map((i) => `<i style="background:${i <= level ? BRANCHES[branch].color : "#262d48"}"></i>`).join("")}</span>`;
+  return `<span class="pips" data-branch="${branch}">${[0, 1, 2, 3, 4]
+    .map((i) => `<i${i <= level ? ' class="on"' : ""}></i>`).join("")}</span>`;
+}
+// Gives the [data-branch] elements their branch colour as --branch. Set through element.style, because
+// the Content-Security-Policy blocks style attributes in HTML.
+function paintBranchColors(root) {
+  root.querySelectorAll("[data-branch]").forEach((element) => element.style.setProperty("--branch", BRANCHES[element.dataset.branch].color));
 }
 function dependencyRow(id) {
   const n = byId.get(id);
@@ -605,6 +613,7 @@ function selectNode(n) {
   renderPanel();
   panel.classList.add("open");
   draw();
+  showStoredUsefulness(n);
 }
 function closePanel() {
   selected = null;
@@ -637,7 +646,7 @@ function renderPanel() {
     : `<em>Kérhetsz rövid, személyre szabott indoklást.</em><button class="text-button" data-act="usefulness">Miért jó nekem?</button>`;
   panelBody.innerHTML = `
     <h2>${esc(n.name)}</h2>
-    <div class="sub"><span style="color:${BRANCHES[n.branch].color}">●</span> ${BRANCHES[n.branch].name} ága ·
+    <div class="sub"><span class="branch-dot" data-branch="${n.branch}">●</span> ${BRANCHES[n.branch].name} ága ·
       <code>${n.id}</code> · ${n.layer + 1}. réteg${n.gateway ? " · ★ kapunode" : ""}</div>
 
     ${n.locked ? `<div class="locked">Zárolt — előbb ezek kellenek legalább 2. szinten:
@@ -662,6 +671,7 @@ function renderPanel() {
       <button data-act="path">Ezt akarom tanulni</button>
       <button class="ghost" data-act="practice">Szemléltetés és gyakorlás →</button>
     </div>`;
+  paintBranchColors(panelBody);
 }
 
 panelBody.addEventListener("click", (e) => {
@@ -697,6 +707,30 @@ async function showUsefulness(skill, { refresh }) {
   }
   if (selected?.id === skill.id) renderPanel();
 }
+
+// Shows the text stored for the current profile when the panel opens; never writes a new one. Without a
+// stored text the panel keeps offering "Miért jó nekem?".
+async function showStoredUsefulness(skill) {
+  if (usefulnessTexts.has(skill.id) || usefulnessLookedUp.has(skill.id)) return;
+  usefulnessLookedUp.add(skill.id);
+  const version = profileVersion;
+  let text;
+  try {
+    text = await storedUsefulness(skill.id);
+  } catch {
+    usefulnessLookedUp.delete(skill.id);
+    return;
+  }
+  if (!text || version !== profileVersion || usefulnessTexts.has(skill.id)) return;
+  usefulnessTexts.set(skill.id, text);
+  if (selected?.id === skill.id) renderPanel();
+}
+
+function forgetUsefulnessTexts() {
+  usefulnessTexts.clear();
+  usefulnessLookedUp.clear();
+  profileVersion += 1;
+}
 panel.querySelector(".close").addEventListener("click", closePanel);
 
 function learningPath(n) {
@@ -727,6 +761,7 @@ let onboarding = null;
 
 function profileFields(profile) {
   return `
+    <p class="privacy-hint">Ne írj ide személyes adatot (pl. nevet, iskolát). A válaszaidat a példák megírásához egy AI-szolgáltató is megkapja. <a href="privacy.html" target="_blank">Adatvédelmi tájékoztató</a></p>
     <div class="field"><label for="profile-interests">Mi érdekel?</label><input id="profile-interests" name="interests" maxlength="500" value="${esc(profile.interests)}" placeholder="Például zene, gaming vagy foci"></div>
     <div class="field"><label for="profile-background">Mondanál magadról valamit, ami segít példát választani?</label><textarea id="profile-background" name="background" maxlength="500" placeholder="Opcionális">${esc(profile.background)}</textarea></div>
     <div class="field"><label for="profile-goal">Mi a célod?</label><input id="profile-goal" name="goal" maxlength="500" value="${esc(profile.goal)}" placeholder="Például érettségi vagy informatika szak"></div>`;
@@ -803,6 +838,7 @@ async function finishOnboarding({ applyCalibration }) {
     if (!sameProfile(onboarding.profile, learner.profile)) {
       await saveProfile(onboarding.profile);
       learner.profile = onboarding.profile;
+      forgetUsefulnessTexts();
     }
     if (applyCalibration) {
       levelSaver.set(levelChanges(onboarding.baselineMastery, proposedCalibration()));
@@ -873,7 +909,7 @@ settingsBody.addEventListener("click", async (event) => {
     settingsBody.querySelector(".modal-actions").insertAdjacentHTML("beforebegin", formError(`A profil mentése nem sikerült: ${error.message}`));
     return;
   }
-  if (!sameProfile(profile, learner.profile)) usefulnessTexts.clear();
+  if (!sameProfile(profile, learner.profile)) forgetUsefulnessTexts();
   learner.profile = profile;
   settingsDialog.close();
   renderPanel();
@@ -884,7 +920,9 @@ const chips = document.getElementById("chips");
 BRANCH_ORDER.forEach((branch) => {
   const b = document.createElement("button");
   b.className = "chip";
-  b.innerHTML = `<i style="background:${BRANCHES[branch].color}"></i>${BRANCHES[branch].name}`;
+  const swatch = document.createElement("i");
+  swatch.style.background = BRANCHES[branch].color;
+  b.append(swatch, BRANCHES[branch].name);
   b.onclick = () => goToBranch(branch);
   chips.appendChild(b);
 });

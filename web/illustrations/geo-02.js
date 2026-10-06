@@ -116,7 +116,7 @@ export function mount(root) {
     const [x, y] = polar(degrees, ARM);
     arm.setAttribute("x1", CENTER[0]); arm.setAttribute("y1", CENTER[1]); arm.setAttribute("x2", x); arm.setAttribute("y2", y);
     wedge.setAttribute("d", wedgePath(degrees, 62));
-    wedge.setAttribute("style", `fill:${color};fill-opacity:.35;stroke:${color};stroke-width:2`);
+    wedge.style.cssText = `fill:${color};fill-opacity:.35;stroke:${color};stroke-width:2`;
     handle.setAttribute("transform", `translate(${x} ${y})`);
     handle.style.display = inChallenge ? "none" : "";
     handleDot.style.fill = color;

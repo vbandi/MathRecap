@@ -83,7 +83,7 @@ export function mount(root) {
     perimeterToggle.setAttribute("aria-pressed", String(state.showPerimeter));
     cellLayer.querySelectorAll("rect").forEach((rect) => {
       const on = state.filled.has(rect.dataset.cell);
-      rect.setAttribute("style", `cursor:pointer;fill:${on ? PALETTE.blue : "transparent"};fill-opacity:${on ? 0.6 : 0};stroke:var(--line-strong);stroke-width:1`);
+      rect.style.cssText = `cursor:pointer;fill:${on ? PALETTE.blue : "transparent"};fill-opacity:${on ? 0.6 : 0};stroke:var(--line-strong);stroke-width:1`;
     });
     edgeLayer.replaceChildren();
     if (state.showPerimeter) {

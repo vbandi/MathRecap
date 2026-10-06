@@ -1,8 +1,8 @@
 # MathRecap — UX-terv
 
-> **Állapot:** a helyi, egyfelhasználós POC megvalósult. A tartalmi fa (190 készség) kész, lásd [README.md](../README.md).
+> **Állapot:** a POC megvalósult, és azóta többfelhasználós lett: jelszó nélküli belépés, fiókonként a kiszolgálón tárolt adatok. A tartalmi fa (190 készség) kész, lásd [README.md](../README.md).
 >
-> **Hatókör:** egyfelhasználós POC, asztali böngésző. Ez a dokumentum a **felülettel** foglalkozik — mit lát a diák és mit tud csinálni —, nem az architektúrával.
+> **Hatókör:** a tanuló saját felülete, elsősorban asztali böngésző. Ez a dokumentum a **felülettel** foglalkozik — mit lát a diák és mit tud csinálni —, nem az architektúrával.
 >
 > **Mire való a fa:** hogy lásd, mivel hogy állsz, és hogy eldöntsd, mivel foglalkozz legközelebb. A **gyakorlófeladatok külön felületen élnek** (8. pont).
 
@@ -10,11 +10,11 @@
 
 ## Megvalósult POC-döntések
 
-- **Egy helyi felhasználó:** nincs fiók, szinkron vagy megosztott előzmény. A profil, az onboarding állapota és az önértékelt tudásszintek verziózott böngészőbeli `localStorage`-ban maradnak.
+- **Fiók és tárolás:** a tanuló e-mail-címmel, jelszó nélkül lép be. A profil, az onboarding állapota, az önértékelt tudásszintek, a „Miért jó neked” szövegek és a feladatlapok fiókonként a kiszolgáló adatbázisában vannak; a böngésző nem tárol tanulói adatot (csak a fa nézetét, az adott lapon). A tanuló letöltheti és törölheti az adatait.
 - **Tudásszint:** mindig kézi önértékelés. A feladatlap elkészítése, kinyomtatása vagy megoldása nem emel és nem javasol automatikus szintet; a zárolás csak a mentett előfeltétel-szintekből számítódik.
-- **AI-beállítás:** az OpenRouter-modellt a helyi kiszolgáló beállítása választja, a felületen nincs modellválasztó. API-kulcs csak AI-művelethez szükséges.
+- **AI-beállítás:** az OpenRouter-modellt a kiszolgáló beállítása választja, a felületen nincs modellválasztó. API-kulcs csak AI-művelethez szükséges.
 - **Feladatlap-kérés:** a készséghez egyetlen, szabadon szerkeszthető magyar kérésmező tartozik. Nincs darabszám-, nehézség-, idő- vagy előfeltétel-kapcsoló.
-- **Feladatlap és nyomtatás:** a tanulói **Feladatlap** és a **Megoldókulcs** külön HTML-nézet, külön nyomtatási paranccsal. Új generálás új feladatlapot cserél le; nincs generált feladatlap-előzmény.
+- **Feladatlap és nyomtatás:** a tanulói **Feladatlap** és a **Megoldókulcs** külön HTML-nézet, külön nyomtatási paranccsal. Új generálás új feladatlapot készít; a korábbiak a fiókba mentődnek, és a feladatlap-oldalon újra megnyithatók vagy törölhetők.
 
 ---
 

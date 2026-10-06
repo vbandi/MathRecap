@@ -13,6 +13,8 @@ h1 { margin: 6px 0 18px; font: 800 30px/1.15 var(--font-display); }
 .skill-context p:first-child { color: var(--fg); font-weight: 700; }
 label { display: block; margin-bottom: 7px; color: var(--fg-soft); font-weight: 600; font-size: 13px; }
 textarea { display: block; min-height: 88px; resize: vertical; }
+.privacy-hint { margin: 8px 0 0; color: var(--dim); font-size: 13px; }
+.privacy-hint a { color: var(--accent); }
 .request-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 14px; }
 body[data-request-state="loading"] #generate-button { cursor: wait; }
 #request-status { color: var(--warn); font-size: 13px; }

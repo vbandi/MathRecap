@@ -89,7 +89,7 @@ export function mount(root) {
     );
     for (const [element, e, colour, focus] of [[ellipseQ, geometry.q, PALETTE.blue, "q"], [ellipseP, geometry.p, PALETTE.violet, "p"]]) {
       Object.entries({ cx: e.cx, cy: e.cy, rx: e.rx, ry: e.ry }).forEach(([k, v]) => element.setAttribute(k, v));
-      element.setAttribute("style", `fill:${colour};fill-opacity:${state.focus === focus ? 0.28 : 0.07};stroke:${colour};stroke-width:2.5;${mode.equal && focus === "q" ? "stroke-dasharray:6 4;" : ""}transition:fill-opacity .3s`);
+      element.style.cssText = `fill:${colour};fill-opacity:${state.focus === focus ? 0.28 : 0.07};stroke:${colour};stroke-width:2.5;${mode.equal && focus === "q" ? "stroke-dasharray:6 4;" : ""}transition:fill-opacity .3s`;
     }
     const q = geometry.q, p = geometry.p;
     labelQ.textContent = mode.equal ? `Q: ${mode.q}` : `Q: ${mode.q}`;
@@ -116,7 +116,7 @@ export function mount(root) {
       const slot = slots[region][used[region]++];
       chips[i].group.style.transform = `translate(${slot.x}px, ${slot.y}px)`;
       const hot = (state.focus === "p" && inP) || (state.focus === "q" && inQ);
-      chips[i].circle.setAttribute("style", `fill:${hot ? "var(--accent)" : "var(--surface)"};stroke:${hot ? "none" : "var(--line-strong)"}`);
+      chips[i].circle.style.cssText = `fill:${hot ? "var(--accent)" : "var(--surface)"};stroke:${hot ? "none" : "var(--line-strong)"}`;
     });
     const missP = NUMBERS.find((n) => mode.qTest(n) && !mode.pTest(n));
     if (state.focus === null) explanation.textContent = mode.equal ? "P és Q ugyanazokat a számokat adja, a két halmaz egybeesik. Kattints a gombokra: a két feltétel egymásnak elégséges és szükséges is." : "Belül a P, kívül a Q. P teljes egészében Q-ban van: ami P-ben van, az biztosan Q-ban is. Kattints a gombokra.";

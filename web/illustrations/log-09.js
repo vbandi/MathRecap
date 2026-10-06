@@ -89,11 +89,11 @@ export function mount(root) {
     const { shape: selectedShape, colour: selectedColour, kind } = statement();
     shapes.forEach((shape, index) => {
       const { ring, body } = nodes[index];
-      body.setAttribute("style", `fill:${COLOUR_INFO[shape.colour].fill};opacity:${shape.shape === selectedShape ? 1 : 0.45}`);
+      body.style.cssText = `fill:${COLOUR_INFO[shape.colour].fill};opacity:${shape.shape === selectedShape ? 1 : 0.45}`;
       const scanningHere = state.current === index;
       const foundHere = state.found === index;
       const stroke = foundHere ? (kind === "exists" ? "var(--accent)" : "var(--il-red)") : scanningHere ? "var(--il-amber)" : "transparent";
-      ring.setAttribute("style", `fill:none;stroke:${stroke};stroke-width:4`);
+      ring.style.cssText = `fill:none;stroke:${stroke};stroke-width:4`;
     });
     guessRow.querySelectorAll("button").forEach((b) => { b.disabled = state.scanning; });
     const truth = isTrue(statement(), shapes), negTruth = negationIsTrue(statement(), shapes);

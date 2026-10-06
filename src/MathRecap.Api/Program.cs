@@ -18,6 +18,7 @@ var app = builder.Build();
 app.Services.GetRequiredService<Curriculum>();
 await app.MigrateInDevelopmentAsync();
 
+app.UseSecurityHeaders();
 app.UseRequestGuards();
 app.UsePageAccess();
 app.UseStaticHosting();

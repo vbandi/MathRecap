@@ -29,85 +29,136 @@ A fa **nem az évfolyamokat követi**, hanem a **logikai függőségeket**: egy 
 9. osztályos anyag ugyanabba a szintbe kerül, vagy hogy egy 6. osztályos fogalom csak jóval
 később válik egy 12. osztályos készség előfeltételévé.
 
-## Helyi futtatás
+## Helyi futtatás (Windows)
 
-**Követelmény:** .NET 10 SDK, Node.js 24 és SQL Server LocalDB (a Visual Studio vagy az SQL Server Express telepítője hozza). A projekt saját, `MathRecap` nevű LocalDB-példányt használ, amelyet egyszer létre kell hozni: `sqllocaldb create MathRecap -s`. A Node csak a KaTeX-csomag telepítéséhez, a böngészős modulok tesztjeihez és a tantervi adatok újraépítéséhez kell. Minden tanulói adat (fiók, profil, tudásszintek, indoklások, feladatlapok) az adatbázisban van, fiókonként; a böngésző nem tárol tanulói adatot.
+Az alkalmazás egy ASP.NET Core-kiszolgáló (`src/MathRecap.Api/`), amely a böngészős felületet (`web/`) és az API-t is kiszolgálja. Minden tanulói adat (fiók, profil, tudásszintek, indoklások, feladatlapok) fiókonként egy SQL Server-adatbázisban van; a böngésző nem tárol tanulói adatot.
+
+### Előfeltételek
+
+- **.NET 10 SDK** – `dotnet --version` 10-essel kezdődjön.
+- **Node.js 24** (npm-mel) – a KaTeX-csomaghoz, a böngészős modulok tesztjeihez és a tantervi adatok újraépítéséhez.
+- **SQL Server LocalDB** – a Visual Studio („Data storage and processing” munkaterhelés) vagy az SQL Server Express telepítője hozza; a `sqllocaldb info` parancsnak futnia kell.
+- **OpenRouter API-kulcs** – csak a „Miért jó neked” szövegekhez és a feladatlapokhoz kell; a fa, a belépés, a profil és a tudásszintek nélküle is működnek.
+
+A projekt saját LocalDB-példányt használ. Egyszer hozd létre és indítsd el:
 
 ```powershell
-npm ci
-dotnet tool restore                      # dotnet-ef (dotnet-tools.json)
+sqllocaldb create MathRecap -s
+```
+
+(A gépenként közös `MSSQLLocalDB` példányt sokszor egy régebbi, már nem telepített SQL Server-verzió hozta létre, és akkor nem indul; ezért kell a saját. Ha később leállt: `sqllocaldb start MathRecap`.)
+
+### Első indítás
+
+A repó gyökerében:
+
+```powershell
+npm ci                                   # KaTeX (a kiszolgáló a node_modules/katex/dist mappából adja)
+dotnet tool restore                      # dotnet-ef (dotnet-tools.json), a migrációkhoz
 $env:OPENROUTER_API_KEY = "sajat-openrouter-kulcs"
 dotnet run --project src/MathRecap.Api
 ```
 
-Az alkalmazás alapértelmezett címe `http://localhost:3000`. A fa, az onboarding, a profil és a kézi tudásszint-kezelés AI nélkül is használható. Az AI-műveletekhez („Miért jó neked”, feladatlap) OpenRouter API-kulcs kell: az `OPENROUTER_API_KEY` környezeti változóból vagy az `OpenRouter:ApiKey` beállításból. A modellt a kiszolgáló beállítása választja: az `OpenRouter:Model` értéke a `src/MathRecap.Api/appsettings.json` fájlban alapértelmezetten `openai/gpt-6-luna`, és például az `OpenRouter__Model` környezeti változóval írható felül. Ugyanitt állítható az `OpenRouter:BaseUrl` és a kérésenkénti `OpenRouter:Timeout` is.
+Az API-kulcs így csak az adott PowerShell-ablakra érvényes. Tartósan a felhasználói környezeti változók közé teheted: `[Environment]::SetEnvironmentVariable("OPENROUTER_API_KEY", "sajat-openrouter-kulcs", "User")` (utána nyiss új ablakot). A kulcsot ne írd be a repó egyik fájljába se.
 
-Hasznos parancsok:
+A `dotnet run` Development környezetben indul (`src/MathRecap.Api/Properties/launchSettings.json`), a címe `http://localhost:3000`. Developmentben a kiszolgáló induláskor létrehozza a `(localdb)\MathRecap` példány `MathRecap` adatbázisát, illetve a legfrissebb migrációra hozza.
+
+### Belépés helyben
+
+Jelszó nincs. A belépési oldalon (`/sign-in.html`) a tanuló megadja az e-mail-címét, és kap egy levelet egy 6 jegyű kóddal és egy belépési linkkel; bármelyikkel beléphet. Mindkettő 10 percig érvényes és egyszer használható; új kód kérése a korábbit érvényteleníti, öt hibás kód után új kódot kell kérni. Az első sikeres belépés hozza létre a fiókot. A link egy megerősítő oldalra visz, ahol a **Belépés** gombbal lehet belépni (a link megnyitása önmagában nem léptet be, így a levelezők linkellenőrzése nem használhatja el). A munkamenet 30 napig él, használat közben megújul. Az oldalak (fa, feladatlap, átnézés) munkamenet nélkül a belépési oldalra irányítanak, majd belépés után vissza.
+
+Valódi levélküldő még nincs, ezért helyben két fejlesztői eszköz pótolja (csak Developmentben kapcsolhatók be):
+
+- **Fejlesztői fiókok:** a belépési oldal „Fejlesztői belépés (csak helyi teszteléshez)” részében egy kattintással lehet belépni: `tanulo1@mathrecap.local`, `tanulo2@mathrecap.local` és `admin@mathrecap.local` (ez utóbbi adminisztrátor).
+- **Fejlesztői postafiók:** az alkalmazás nem küld levelet, hanem megőrzi az utolsó 50-et. A `http://localhost:3000/dev/outbox.html` oldalon olvasható a kód és a kattintható belépési link (JSON-ban: `/api/dev/outbox`). Bármilyen címmel kipróbálható az új tanuló regisztrációja, például `valaki@example.test`.
+
+### Tesztek
 
 ```powershell
-dotnet run --project src/MathRecap.Api   # helyi kiszolgáló
-dotnet test                              # a kiszolgáló tesztjei
-npm test                                 # a böngészős modulok hálózatmentes tesztjei
-npm run build:data                       # a tantervi adatok (web/data/curriculum.json) újraépítése és ellenőrzése
+dotnet build                             # a figyelmeztetések is hibák (Directory.Build.props)
+dotnet test                              # a kiszolgáló tesztjei (hamis OpenRouterrel, hálózat nélkül)
+npm test                                 # a böngészős modulok tesztjei (Node beépített tesztfuttatójával)
 ```
 
-Könyvtárszerkezet: `web/` – a böngészőnek kiszolgált front end; `src/MathRecap.Api/` – az ASP.NET Core kiszolgáló; `tests/` – a .NET- és a JS-tesztek, valamint közös tesztesetek; `tools/` – az adatgenerátor; `agak/` – a tanterv forrása; `docs/` – tervek és leírások.
+A `dotnet test` futásonként saját, `MathRecapTests_<guid>` nevű LocalDB-adatbázist hoz létre a migrációkkal, és a végén törli; ehhez a `MathRecap` példánynak futnia kell. A tesztek a valódi API-kulcsot nem használják. Hasznos még: `npm run build:data` (a tantervi adatok, `web/data/curriculum.json` újraépítése és ellenőrzése).
 
-### Adatbázis
+Könyvtárszerkezet: `web/` – a böngészőnek kiszolgált front end; `src/MathRecap.Api/` – az ASP.NET Core-kiszolgáló; `tests/` – a .NET- és a JS-tesztek, valamint közös tesztesetek; `tools/` – az adatgenerátor; `agak/` – a tanterv forrása; `docs/` – tervek és leírások.
 
-Development környezetben (`dotnet run` alapértelmezése) az alkalmazás a `(localdb)\MathRecap` példány `MathRecap` adatbázisát használja (`ConnectionStrings:Database` a `src/MathRecap.Api/appsettings.Development.json` fájlban), és induláskor magától létrehozza, illetve a legfrissebb migrációra hozza. Más környezetben az alkalmazás nem migrál; ott indítás előtt kell lefuttatni:
+### Adatbázis és migrációk
+
+Developmenten kívül az alkalmazás nem migrál; ott indítás előtt kell lefuttatni:
 
 ```powershell
 dotnet ef database update --project src/MathRecap.Api --connection "<kapcsolati sztring>"
 ```
 
-Új migráció: `dotnet ef migrations add <Név> --project src/MathRecap.Api --output-dir Data/Migrations`. A `dotnet test` minden futáshoz saját, `MathRecapTests_<guid>` nevű LocalDB-adatbázist hoz létre a migrációkkal, és a végén törli.
+Új migráció: `dotnet ef migrations add <Név> --project src/MathRecap.Api --output-dir Data/Migrations`.
 
-A saját példány azért kell, mert a gépenként közös `MSSQLLocalDB` példányt sokszor egy régebbi, már nem telepített SQL Server-verzió hozta létre, és akkor nem indul el. Ha a `MathRecap` példány leállt, a `sqllocaldb start MathRecap` elindítja.
+### Beállítások
 
-### Belépés
+A beállítások a `src/MathRecap.Api/appsettings.json` (minden környezet), az `appsettings.Development.json` (csak Development), a környezeti változók (a `:` helyett `__`, például `OpenRouter__Model`) és a parancssor rétegeiből állnak össze. Az `appsettings.json` szándékosan nem tartalmaz titkot, kapcsolati sztringet, adminisztrátort, és a fejlesztői eszközök benne ki vannak kapcsolva (ezt teszt is ellenőrzi).
 
-Jelszó nincs. A belépési oldalon (`/sign-in.html`) a tanuló megadja az e-mail-címét, és kap egy levelet egy 6 jegyű kóddal és egy belépési linkkel; bármelyikkel beléphet. Mindkettő 10 percig érvényes és egyszer használható; új kód kérése a korábbit érvényteleníti, öt hibás kód után új kódot kell kérni. Regisztráció nincs külön: az első sikeres belépés hozza létre a fiókot. A link egy megerősítő oldalra visz, ahol a **Belépés** gombbal lehet belépni (a link megnyitása önmagában nem léptet be, így a levelezők linkellenőrzése nem használhatja el). A munkamenet 30 napig él, használat közben megújul. A fejléc fiókmenüjében (a belépett cím) van az **Adataim letöltése**, a **Fiók törlése** és a **Kijelentkezés**, adminisztrátoroknak az **Átnézés** is. Az oldalak (fa, feladatlap, átnézés) munkamenet nélkül a belépési oldalra irányítanak, majd belépés után vissza.
-
-Helyi teszteléshez, e-mail-fiók nélkül:
-
-- **Fejlesztői fiókok:** a belépési oldal „Fejlesztői belépés (csak helyi teszteléshez)” részében egy kattintással lehet belépni a `DevAccounts:Accounts` listában szereplő fiókokkal (alapból `tanulo1@mathrecap.local`, `tanulo2@mathrecap.local`, `admin@mathrecap.local`).
-- **Fejlesztői postafiók:** az alkalmazás nem küld valódi levelet, hanem megőrzi az utolsó 50-et; a `http://localhost:3000/dev/outbox.html` oldalon olvashatók a kódok és a linkek (JSON-ban: `/api/dev/outbox`).
-
-Mindkettőt a `DevAccounts:Enabled` és a `DevOutbox:Enabled` kapcsoló engedélyezi (Developmentben alapból be vannak kapcsolva). Bárkit beléptetnének, ezért ha bármelyik Developmenten kívül be van kapcsolva, az alkalmazás el sem indul. Valódi levélküldő még nincs, így Developmenten kívül az alkalmazás jelenleg nem indul („No email sender is configured”).
-
-Beállítások (Development-értékek az `appsettings.Development.json`-ban):
-
-| Kulcs | Jelentés |
-|---|---|
-| `ConnectionStrings:Database` | az SQL Server-adatbázis |
-| `App:BaseUrl` | az alkalmazás böngészőből elérhető címe; erre mutatnak a levelek linkjei (Development: `http://localhost:3000`) |
-| `SignIn:CodeHashKey` | a tárolt kódok HMAC-kulcsa, legalább 32 karakter; Developmenten kívül titkos érték, nélküle az alkalmazás nem indul |
-| `RateLimits:SignInPerMinute`, `SignInPerHour` | belépési levélkérések IP-címenként (alapból 5/perc, 30/óra) |
-| `RateLimits:VerifyPerMinute` | kód- és linkellenőrzések IP-címenként (alapból 20/perc) |
-| `RateLimits:SignInPerEmailPerHour` | belépési levelek címenként (alapból 5/óra) |
-| `Admin:Emails` | az adminisztrátorok e-mail-címei (Development: `admin@mathrecap.local`) |
-| `DevOutbox:Enabled`, `DevAccounts:Enabled`, `DevAccounts:Accounts` | a fejlesztői eszközök (csak Developmentben) |
+| Kulcs | Jelentés | Development | Éles környezetben |
+|---|---|---|---|
+| `ASPNETCORE_ENVIRONMENT` | a környezet neve | `Development` (launchSettings.json) | `Production`; Developmenten kívül HTTPS-átirányítás és HSTS van |
+| `ConnectionStrings:Database` | az SQL Server-adatbázis | `(localdb)\MathRecap`, `MathRecap` adatbázis | **kötelező**; titokként kezelendő |
+| `App:BaseUrl` | az alkalmazás böngészőből elérhető címe; erre mutatnak a levelek linkjei | `http://localhost:3000` | **kötelező**, `https://` cím |
+| `SignIn:CodeHashKey` | a tárolt belépési kódok HMAC-kulcsa, legalább 32 karakter | nem titkos fejlesztői érték | **kötelező**, véletlen titok; nélküle nem indul |
+| `Admin:Emails` | az adminisztrátorok e-mail-címei (illusztrációk átnézése) | `admin@mathrecap.local` | a valódi adminisztrátorok (alapból üres) |
+| `OPENROUTER_API_KEY` vagy `OpenRouter:ApiKey` | az OpenRouter API-kulcsa | környezeti változóból | titokként (pl. Key Vault); nélküle az AI-funkciók 503-at adnak |
+| `OpenRouter:Model` | a használt modell | `openai/gpt-6-luna` | igény szerint |
+| `OpenRouter:BaseUrl`, `OpenRouter:Timeout` | az OpenRouter címe és a kérésenkénti időkorlát | `https://openrouter.ai/api/v1`, 2 perc | változatlanul |
+| `RateLimits:SignInPerMinute`, `SignInPerHour` | belépési levélkérések IP-címenként | 5/perc, 30/óra | lásd „Közzététel előtt” (valódi kliens-IP) |
+| `RateLimits:VerifyPerMinute` | kód- és linkellenőrzések IP-címenként | 20/perc | |
+| `RateLimits:SignInPerEmailPerHour` | belépési levelek címenként | 5/óra | |
+| `DevOutbox:Enabled` | fejlesztői postafiók | be | **ki**; bekapcsolva az alkalmazás nem indul |
+| `DevAccounts:Enabled`, `DevAccounts:Accounts` | egykattintásos fejlesztői fiókok | be, három fiók | **ki**; bekapcsolva az alkalmazás nem indul |
+| (levélküldő) | valódi e-mail-küldés | a fejlesztői postafiók pótolja | **kötelező, de még nincs megírva**: nélküle Developmenten kívül az alkalmazás nem indul („No email sender is configured”) |
+| `StaticHosting:WebRoot`, `KatexRoot` | a front end és a KaTeX mappája | `../../web`, `../../node_modules/katex/dist` | a közzétett csomagban `web`, `vendor/katex` (a csproj bemásolja) |
+| `AllowedHosts` | elfogadott `Host` fejlécek | `localhost;127.0.0.1;[::1]` | az éles domain |
+| `https_port` / `HTTPS_PORTS` | a HTTPS-átirányítás célportja | – | ha a kiszolgáló nem tudja magától (proxy mögött) |
+| `Logging:LogLevel` | naplózási szintek | Information, `Microsoft.AspNetCore`: Warning | változatlanul |
 
 ### Feladatlap és nyomtatás
 
-Egy készség paneljének **Gyakorlás** gombja külön feladatlap-oldalt nyit. Egyetlen szabad szöveges kérésben lehet megadni a gyakorlás fókuszát; a generált példák a tanuló megadott érdeklődési köreihez is igazodhatnak. Az **Új feladatlap** új generálást indít, nem fűzi hozzá a korábbihoz. A **Feladatlap** és **Megoldókulcs** külön nézet, mindkettőnek saját nyomtatás gombja van. Nyomtatás előtt válaszd ki a kívánt nézetet; a nyomtatási stílus elrejti az alkalmazás vezérlőit. A feladatmegoldás nem módosítja automatikusan a tudásszintet.
+Egy készség paneljének **Gyakorlás** gombja külön feladatlap-oldalt nyit. Egyetlen szabad szöveges kérésben lehet megadni a gyakorlás fókuszát; a generált példák a tanuló megadott érdeklődési köreihez is igazodhatnak. Az **Új feladatlap** új generálást indít, nem fűzi hozzá a korábbihoz. A **Feladatlap** és **Megoldókulcs** külön nézet, mindkettőnek saját nyomtatás gombja van; a nyomtatási stílus elrejti az alkalmazás vezérlőit. A feladatmegoldás nem módosítja automatikusan a tudásszintet.
 
 Minden elkészült feladatlap a tanuló fiókjába mentődik. A feladatlap-oldal **Korábbi feladatlapjaid** listája az adott készség mentett lapjait mutatja (cím, dátum, kérés, a legújabb elöl); egy lap megnyitható (`worksheet.html?skill=<készség>&worksheet=<azonosító>`, újratöltés után is), ugyanúgy nyomtatható, és megerősítés után törölhető.
 
 ### Adatok, fiók és átnézés
 
-A kiszolgáló fiókonként tárolja a profilt, az onboarding befejezését, a tudásszinteket (csak a 0-nál nagyobbakat), a „Miért jó neked” szövegeket (készségenként a legutóbbit, azzal a profillal együtt, amelyhez készült: a profil megváltozása után kéréskor új készül) és a feladatlapokat. Egy tanuló más tanuló adatát nem látja és nem módosíthatja; más feladatlapjára a válasz „nem található”. A korábbi verziók böngészőben tárolt adatait (`mathrecap.local-state`, `mathrecap.illustrationReview.v1`) az alkalmazás nem veszi át, csak törli.
+A kiszolgáló fiókonként tárolja a profilt, az onboarding befejezését, a tudásszinteket (csak a 0-nál nagyobbakat), a „Miért jó neked” szövegeket (készségenként a legutóbbit, azzal a profillal együtt, amelyhez készült) és a feladatlapokat. A panel megnyitásakor a fa a tárolt szöveget olvassa be (`GET /api/usefulness/{skillId}`, modellhívás nélkül), ha az a jelenlegi profilhoz készült; új szöveg csak kérésre készül. Egy tanuló más tanuló adatát nem látja és nem módosíthatja; más feladatlapjára a válasz „nem található”. A korábbi verziók böngészőben tárolt adatait (`mathrecap.local-state`, `mathrecap.illustrationReview.v1`) az alkalmazás nem veszi át, csak törli.
 
-Az **Adataim letöltése** minden tanulói adatot egy JSON-fájlban ad (`mathrecap-adataim-<dátum>.json`). A **Fiók törlése** megerősítés után a fiókot és minden hozzá tartozó adatot töröl (a belépési kódokat is), és minden munkamenetét lezárja.
+A fejléc fiókmenüjében (a belépett cím) van az **Adataim letöltése** (minden tanulói adat egy JSON-fájlban, `mathrecap-adataim-<dátum>.json`), a **Fiók törlése** (megerősítés után a fiókot és minden hozzá tartozó adatot töröl, a belépési kódokat is, és minden munkamenetét lezárja), a **Kijelentkezés**, adminisztrátoroknak az **Átnézés**, valamint az adatvédelmi tájékoztató és a felhasználási feltételek.
 
-Az illusztrációk átnézése (`review.html`) az adminisztrátoroké: azoké a belépett felhasználóké, akiknek a címe szerepel az `Admin:Emails` listában. Az átnézés állapota (készségenként állapot és megjegyzés, ki és mikor módosította) közös, a kiszolgálón van. Más felhasználónak az oldal „nincs hozzáférés” oldalt (403), az API 403-at ad.
+Az illusztrációk átnézése (`review.html`) az adminisztrátoroké: azoké a belépett felhasználóké, akiknek a címe szerepel az `Admin:Emails` listában. Az átnézés állapota közös, a kiszolgálón van. Más felhasználónak az oldal „nincs hozzáférés” oldalt (403), az API 403-at ad.
+
+### Adatvédelmi tájékoztató és felhasználási feltételek
+
+A `web/privacy.html` („Adatvédelmi tájékoztató”) és a `web/terms.html` („Felhasználási feltételek”) nyilvános oldal, a belépési oldalról és a fiókmenüből érhető el; a profilmezők és a feladatlap-kérés mellett rövid figyelmeztetés kéri, hogy a tanuló ne írjon be személyes adatot. A szöveg tizenéveseknek szól, és csak azt állítja, amit az alkalmazás ténylegesen tesz.
+
+**Az üzemeltető nevét és elérhetőségét még ki kell tölteni:** egyetlen helyen szerepel, a `web/privacy.html` „Ki kezeli az adataidat?” részében, `[Üzemeltető neve és elérhetősége]` helyőrzőként (a feltételek erre hivatkoznak). Közzététel előtt a tulajdonosnak ki kell töltenie, és mindkét szöveget jogásszal át kell nézetnie.
 
 ### Biztonsági határ
 
-Az OpenRouter API-kulcsa kizárólag a helyi .NET-kiszolgálón marad; a böngészőnek nem adódik át, a hibaüzenetek és a naplók sem tartalmazhatják. A modellnek küldött profil- és szabad szöveges kérés elhatárolt, nem megbízható adatként szerepel. A kiszolgáló a modell válaszát a `src/MathRecap.Api/Ai/Schemas/` JSON-sémái és a további szabályok (például ábrák, feladat–válasz párok, diagnosztikai készségek) szerint ellenőrzi, érvénytelen feladatlapnál egyszer javítást kér, a felület pedig nem szúr be modell-szöveget HTML-ként.
+- **Hozzáférés:** minden API-végpont munkamenetet kér, kivéve a belépés végpontjait, a fejlesztői eszközöket és az ismeretlen API-útvonalak JSON-404-ét; az `/api/admin/*` végpontok adminisztrátort is. Minden HTML-oldal munkamenetet kér, kivéve a `PageAccess` nyilvános listáján szereplőket (belépés, belépés linkkel, adatvédelem, feltételek, fejlesztői postafiók). Az `EndpointAccessTests` minden végpontot és minden `web/**/*.html` oldalt végigjár: ha új végpont vagy oldal kerül be anélkül, hogy eldöntöttük volna a hozzáférését, a teszt elbukik.
+- **Fejlécek** (`SecurityHeaders.cs`, minden válaszon): `Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, szigorú `Permissions-Policy`, `Cross-Origin-Opener-Policy: same-origin`; az API válaszain `Cache-Control: no-store`. Developmenten kívül HTTPS-átirányítás és HSTS. Az oldalakon ezért nincs beágyazott szkript, `<style>` elem, `style="…"` attribútum és `on…=` eseménykezelő: a stílusokat a szkriptek az `element.style`-on keresztül állítják (ezt a CSP engedi). A `tests/web/content-security.test.mjs` a forrásban ellenőrzi ezt.
+- **Munkamenet:** a süti HttpOnly és SameSite=Lax, HTTPS-en Secure is; az API minden módosító kérése (POST, PUT, PATCH, DELETE) csak akkor fut le, ha az `Origin` fejléc az alkalmazás saját címe.
+- **Belépési titkok:** a kódokból és linkekből csak hash kerül az adatbázisba (a kódból kulcsolt HMAC-SHA256, a linkből SHA-256).
+- **Naplók:** semmilyen szinten (a Debugot is beleértve) nem kerül a naplóba e-mail-cím, kód, link, profilszöveg, feladatlap-kérés, prompt, modellválasz vagy API-kulcs, csak felhasználói azonosítók és technikai események; a `LoggingTests` egy teljes tanulói munkamenettel ellenőrzi.
+- **AI:** az OpenRouter API-kulcsa kizárólag a kiszolgálón marad; a böngészőnek nem adódik át, a hibaüzenetek sem tartalmazzák. A modellnek küldött profil- és szabad szöveges kérés elhatárolt, nem megbízható adatként szerepel. A kiszolgáló a modell válaszát a `src/MathRecap.Api/Ai/Schemas/` JSON-sémái és további szabályok szerint ellenőrzi, érvénytelen feladatlapnál egyszer javítást kér, a felület pedig nem szúr be modell-szöveget HTML-ként.
 
-A munkamenet sütije HttpOnly és SameSite=Lax (HTTPS-en Secure is); az API minden módosító kérése (POST, PUT, PATCH, DELETE) csak akkor fut le, ha az `Origin` fejléc az alkalmazás saját címe, így más oldal nem módosíthat semmit a tanuló nevében. A belépési kódokból és linkekből csak hash kerül az adatbázisba (a kódból kulcsolt HMAC-SHA256, a linkből SHA-256), a naplókba pedig sem kód, sem link, sem e-mail-cím nem kerül, csak felhasználói azonosító.
+### Közzététel előtt
+
+A helyi béta kész; nyilvános indulás előtt ezek hiányoznak:
+
+1. **Valódi levélküldő** (például egy e-mail-szolgáltató API-ja) `IEmailSender`-ként; amíg nincs, az alkalmazás Developmenten kívül el sem indul.
+2. **Visszaélés elleni korlátok az AI-hívásokra:** felhasználónkénti napi/órai kvóta a feladatlapokra és az indoklásokra (most csak a belépés korlátozott), és költségkeret az OpenRouter-fiókon.
+3. **Szülői hozzájárulás 16 év alatt:** a tájékoztató szerint kell, de az alkalmazás még nem kéri és nem kezeli (életkor-nyilatkozat, szülői megerősítés).
+4. **Jogi átnézés:** az adatvédelmi tájékoztató és a felhasználási feltételek szövege, az üzemeltető adatainak kitöltése, az adatkezelés jogalapja, az OpenRouterrel és a modellszolgáltatókkal kötött feltételek (EU-n kívüli adattovábbítás), a biztonsági mentések megőrzési ideje.
+5. **Data Protection-kulcsok tárolása:** a munkamenet-sütit az ASP.NET Core Data Protection titkosítja; a kulcsokat tartósan és közösen kell tárolni (pl. Azure Blob Storage + Key Vault), különben újraindításkor vagy több példány esetén minden munkamenet elvész.
+6. **Továbbított fejlécek proxy mögött:** a `ForwardedHeaders` middleware beállítása, hogy a sebességkorlát a valódi kliens-IP-t lássa (most a proxy címét látná, és mindenki egy kosárba kerülne), a HTTPS-átirányítás és a Secure süti pedig a valódi sémát.
+7. **Azure-telepítés:** App Service és Azure SQL (vagy hasonló), titkok Key Vaultban, `dotnet ef database update` a telepítés részeként, `AllowedHosts` és `App:BaseUrl` az éles domainre, naplók megőrzési ideje.
 
 ## Hatókör
 

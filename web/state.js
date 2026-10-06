@@ -41,6 +41,11 @@ export async function requestUsefulness(skillId, refresh = false) {
   return (await api("POST", "/api/usefulness", { skillId, refresh })).usefulness.text;
 }
 
+// The stored "why it is useful for you" text for the current profile, or null; never writes a new one.
+export async function storedUsefulness(skillId) {
+  return (await api("GET", `/api/usefulness/${encodeURIComponent(skillId)}`)).usefulness?.text ?? null;
+}
+
 // Sends level changes; keepalive lets the last ones reach the server while the page is left.
 export function saveLevels(levels) {
   return api("PUT", "/api/me/levels", { levels }, { keepalive: true });

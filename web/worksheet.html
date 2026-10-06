@@ -30,7 +30,8 @@
     <section class="request-panel app-chrome" aria-labelledby="workspace-title">
       <h2 id="workspace-title">Feladatlap készítése</h2>
       <label for="worksheet-request">Mit gyakorolnál?</label>
-      <textarea id="worksheet-request" class="input" maxlength="2000">Kérek fokozatos, önálló gyakorlást.</textarea>
+      <textarea id="worksheet-request" class="input" maxlength="2000" aria-describedby="request-hint">Kérek fokozatos, önálló gyakorlást.</textarea>
+      <p id="request-hint" class="privacy-hint">Ne írj ide személyes adatot (pl. nevet, iskolát). A kérésedet a feladatlap megírásához egy AI-szolgáltató kapja meg. <a href="privacy.html" target="_blank">Adatvédelmi tájékoztató</a></p>
       <div class="request-actions">
         <button id="generate-button" class="btn" type="button">Feladatlap készítése</button>
         <button id="retry-button" class="btn ghost" type="button" hidden>Próbáld újra</button>

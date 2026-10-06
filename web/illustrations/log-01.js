@@ -79,7 +79,7 @@ export function mount(root) {
       if (wrong) wrongIn.push(object.id);
       if (absent) missing.push(object.id);
       const flag = state.checked && (wrong || absent);
-      hit.setAttribute("style", `fill:transparent;stroke:${flag ? "var(--warn)" : "transparent"};stroke-width:2.5;${absent ? "stroke-dasharray:5 4" : ""}`);
+      hit.style.cssText = `fill:transparent;stroke:${flag ? "var(--warn)" : "transparent"};stroke-width:2.5;${absent ? "stroke-dasharray:5 4" : ""}`;
     }
     const members = OBJECTS.filter((o) => state.inBox.has(o.id)).map((o) => o.id);
     setLine.replaceChildren(equation("A", rich("{ ", make("span", "il-accent", members.join("; ") || "∅"), " }")));

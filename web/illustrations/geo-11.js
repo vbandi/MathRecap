@@ -114,7 +114,7 @@ export function mount(root) {
     groups.forEach((g) => g.buttons.forEach((button, index) => button.setAttribute("aria-pressed", String(g.options[index][1] === state.props[g.key]))));
     nodes.forEach(({ id, rect }) => {
       const applies = info.is.includes(id), exact = id === cls;
-      rect.setAttribute("style", `fill:${applies ? PALETTE.green : "var(--surface)"};fill-opacity:${exact ? 0.55 : applies ? 0.3 : 1};stroke:${exact ? PALETTE.green : applies ? PALETTE.green : "var(--line-strong)"};stroke-width:${exact ? 3.5 : 1.5}`);
+      rect.style.cssText = `fill:${applies ? PALETTE.green : "var(--surface)"};fill-opacity:${exact ? 0.55 : applies ? 0.3 : 1};stroke:${exact ? PALETTE.green : applies ? PALETTE.green : "var(--line-strong)"};stroke-width:${exact ? 3.5 : 1.5}`;
     });
     names.className = "il-message good";
     names.textContent = `${state.note}Ez a négyszög: ${info.is.map((id) => CLASSES[id].name).join(", ")}. A legszűkebb neve: ${info.name}.`;

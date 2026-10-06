@@ -9,12 +9,12 @@ public static class ApiEndpoints
 {
     // Every API endpoint needs a session, unless it is mapped with AllowAnonymous: the sign-in endpoints
     // in AccountEndpoints, the dev tools, and the answer to unknown routes. Admin endpoints also need an
-    // admin (see Admins). Pages: see PageAccess.
+    // admin (see Admins). EndpointAccessTests holds the list of public endpoints. Pages: see PageAccess.
+    // API answers are never cached (see SecurityHeaders).
     public static void MapApiEndpoints(this WebApplication app)
     {
         var api = app.MapGroup("/api").RequireAuthorization().AddEndpointFilter(async (context, next) =>
         {
-            context.HttpContext.Response.Headers.CacheControl = "no-store";
             try
             {
                 return await next(context);

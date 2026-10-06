@@ -63,8 +63,8 @@ export function mount(root) {
       const inA = eventA.test(cell.a, cell.b), inB = eventB.test(cell.a, cell.b), inR = Boolean(operation.test(inA, inB));
       a += inA; b += inB; r += inR;
       const isSelected = selected && selected[0] === cell.a && selected[1] === cell.b;
-      cell.rect.setAttribute("style", `fill:${inR ? PALETTE.green : "var(--surface)"};fill-opacity:${inR ? 0.75 : 1};stroke:${isSelected ? "var(--fg)" : inA ? PALETTE.blue : inB ? PALETTE.amber : "var(--line)"};stroke-width:${isSelected ? 4 : inA || inB ? 3.5 : 1}`);
-      cell.text.setAttribute("style", `font-size:12px;fill:${inR ? "#fff" : "var(--fg-soft)"};font-weight:${inA || inB ? 700 : 400}`);
+      cell.rect.style.cssText = `fill:${inR ? PALETTE.green : "var(--surface)"};fill-opacity:${inR ? 0.75 : 1};stroke:${isSelected ? "var(--fg)" : inA ? PALETTE.blue : inB ? PALETTE.amber : "var(--line)"};stroke-width:${isSelected ? 4 : inA || inB ? 3.5 : 1}`;
+      cell.text.style.cssText = `font-size:12px;fill:${inR ? "#fff" : "var(--fg-soft)"};font-weight:${inA || inB ? 700 : 400}`;
     });
     selectedLine.className = "il-message";
     selectedLine.textContent = selected

@@ -16,10 +16,13 @@ export function make(tag, className, text) {
   return element;
 }
 
+// A `style` attribute is applied through element.style: the Content-Security-Policy blocks style
+// attributes set with setAttribute, but not styles set through the CSSOM.
 export function svg(tag, attributes = {}, parent) {
   const element = document.createElementNS(SVG_NS, tag);
   for (const [name, value] of Object.entries(attributes)) {
     if (name === "text") element.textContent = value;
+    else if (name === "style") element.style.cssText = value;
     else element.setAttribute(name, value);
   }
   parent?.append(element);

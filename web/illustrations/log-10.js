@@ -120,8 +120,8 @@ export function mount(root) {
         chip.group.style.transform = `translate(${position.x}px, ${position.y}px)`;
         const duplicate = sorted && targets.length > 1;
         const leftover = sorted && !bins.length;
-        chip.circle.setAttribute("style", `fill:${duplicate ? "var(--il-amber)" : leftover ? "var(--il-red)" : sorted ? "var(--accent)" : "var(--surface)"};stroke:${sorted ? "none" : "var(--line-strong)"}`);
-        chip.text.setAttribute("style", `font-size:12px;font-weight:700;fill:${sorted ? "var(--accent-ink)" : "var(--fg-soft)"}`);
+        chip.circle.style.cssText = `fill:${duplicate ? "var(--il-amber)" : leftover ? "var(--il-red)" : sorted ? "var(--accent)" : "var(--surface)"};stroke:${sorted ? "none" : "var(--line-strong)"}`;
+        chip.text.style.cssText = `font-size:12px;font-weight:700;fill:${sorted ? "var(--accent-ink)" : "var(--fg-soft)"}`;
         if (duplicate || leftover) chip.text.style.fill = "#fff";
       });
     });

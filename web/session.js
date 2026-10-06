@@ -108,7 +108,14 @@ export function mountAccountMenu(container, me) {
   download.setAttribute("download", "");
   const deleteAccount = menuItem("button", "Fiók törlése");
   const signOut = menuItem("button", "Kijelentkezés");
-  menu.append(download, deleteAccount, signOut);
+  const privacy = menuItem("a", "Adatvédelmi tájékoztató", "account-menu-item account-menu-minor");
+  privacy.href = "/privacy.html";
+  const terms = menuItem("a", "Felhasználási feltételek", "account-menu-item account-menu-minor");
+  terms.href = "/terms.html";
+  const footer = document.createElement("div");
+  footer.className = "account-menu-footer";
+  footer.append(privacy, terms);
+  menu.append(download, deleteAccount, signOut, footer);
 
   const setOpen = (open) => {
     menu.hidden = !open;

@@ -10,7 +10,8 @@ using Microsoft.Extensions.Logging;
 
 namespace MathRecap.Api.Tests;
 
-// POST /api/worksheets and /api/usefulness against the fake OpenRouter. Each request comes from a new learner,`n// who has no stored texts yet.
+// POST /api/worksheets and /api/usefulness against the fake OpenRouter. Each request comes from a new learner,
+// who has no stored texts yet.
 public sealed class GenerationEndpointsTests : IAsyncDisposable
 {
     private const string SkillId = "ALG-08";

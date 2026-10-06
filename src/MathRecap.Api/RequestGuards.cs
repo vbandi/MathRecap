@@ -8,7 +8,6 @@ public static class RequestGuards
     {
         app.Use(async (context, next) =>
         {
-            context.Response.Headers.XContentTypeOptions = "nosniff";
             // Other sites open in the browser must not be able to change anything through the API with
             // the learner's session. Browsers send Origin with every such request.
             if (context.Request.Path.StartsWithSegments("/api") && !IsSafeMethod(context.Request.Method) && !IsOwnOrigin(context.Request))

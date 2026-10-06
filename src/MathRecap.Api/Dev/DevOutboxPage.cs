@@ -22,20 +22,11 @@ public static partial class DevOutboxPage
             <meta name="viewport" content="width=device-width,initial-scale=1">
             <title>MathRecap - fejlesztői postafiók</title>
             <link rel="stylesheet" href="/theme.css">
-            <style>
-              main { max-width: 820px; margin: 28px auto 60px; padding: 0 16px; }
-              h1 { margin: 6px 0 8px; font: 800 28px/1.15 var(--font-display); }
-              .lead { color: var(--dim); }
-              .message { margin: 16px 0; padding: 16px 18px; background: var(--bg2); border: 1px solid var(--line); border-radius: var(--radius); }
-              .message h2 { margin: 0 0 4px; font: 700 17px/1.3 var(--font-display); }
-              .meta { margin: 0 0 10px; color: var(--dim); font-size: 13px; }
-              pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 14px/1.5 var(--font); color: var(--fg-soft); }
-              a { color: var(--accent); }
-            </style>
+            <link rel="stylesheet" href="/text-page.css">
             </head>
             <body>
             <header class="topbar"><a class="brand" href="/sign-in.html"><span class="logo" aria-hidden="true">√</span>MathRecap <small>fejlesztői postafiók</small></a></header>
-            <main>
+            <main class="text-page">
             <p class="eyebrow">Csak helyi teszteléshez</p>
             <h1>Fejlesztői postafiók</h1>
             <p class="lead">Az alkalmazás ide teszi az e-maileket ahelyett, hogy elküldené őket. Az utolsó {{DevOutbox.Capacity}} üzenet látszik, a legújabb elöl.</p>

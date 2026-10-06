@@ -5,142 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MathRecap — készségfa (prototípus)</title>
 <link rel="stylesheet" href="theme.css">
-<style>
-  html, body { height: 100%; }
-  body { overflow: hidden; }
-
-  header.topbar { position: relative; z-index: 3; }
-
-  #search { width: 220px; padding: 6px 12px; border-radius: 999px; }
-
-  .chips { display: flex; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
-  .chip {
-    flex: none;
-    display: flex; align-items: center; gap: 6px;
-    padding: 4px 11px 4px 8px; border-radius: 999px;
-    border: 1px solid var(--line); background: transparent;
-    color: var(--fg-soft); font-size: 12px; cursor: pointer;
-    transition: background-color .12s ease, border-color .12s ease, transform .12s ease;
-  }
-  .chip:hover { color: var(--fg); border-color: var(--line-strong); background: var(--surface); transform: translateY(-1px); }
-  .chip i { width: 9px; height: 9px; border-radius: 3px; display: block; transform: rotate(45deg); }
-
-  .spacer { flex: 1; }
-  .hint { color: var(--dim); font-size: 12px; white-space: nowrap; }
-  .icon-button {
-    flex: none; width: 34px; height: 34px; border: 1px solid var(--line); border-radius: 10px;
-    background: transparent; color: var(--fg-soft); font: 17px/1 system-ui; cursor: pointer;
-    transition: transform .25s ease, border-color .12s ease, color .12s ease;
-  }
-  .icon-button:hover { color: var(--accent); border-color: var(--line-strong); transform: rotate(45deg); }
-
-  #stage { position: absolute; inset: 52px 0 0 0; background: radial-gradient(1200px 600px at 50% -10%, rgba(198,240,106,.05), transparent 60%), var(--bg); }
-  canvas { display: block; width: 100%; height: 100%; cursor: grab; }
-  canvas.dragging { cursor: grabbing; }
-
-  .floating {
-    position: absolute;
-    background: rgba(21,26,44,.86);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    backdrop-filter: blur(8px);
-  }
-  #minimap { right: 14px; bottom: 14px; width: 220px; height: 110px; cursor: pointer; }
-
-  #legend { left: 14px; bottom: 14px; padding: 10px 14px; font-size: 12px; color: var(--dim); line-height: 1.9; }
-  #legend b { color: var(--fg); font: 700 12px/1 var(--font-display); display: block; margin-bottom: 6px; }
-  #legend .row { display: flex; align-items: center; gap: 8px; }
-  #legend .sw { width: 26px; height: 13px; border-radius: 4px; border: 1.5px solid #0B84D6; }
-
-  #tip { pointer-events: none; padding: 7px 11px; font-size: 12px; max-width: 280px; display: none; z-index: 4; }
-  #tip .t { color: var(--dim); }
-
-  #panel {
-    position: absolute; top: 52px; right: 0; bottom: 0; width: 390px;
-    background: var(--bg2); border-left: 1px solid var(--line);
-    box-shadow: -18px 0 50px rgba(3,5,14,.35);
-    padding: 20px 22px 28px; overflow-y: auto;
-    transform: translateX(100%); transition: transform .22s cubic-bezier(.2,.8,.2,1);
-    z-index: 2;
-  }
-  #panel.open { transform: none; }
-  #panel h2 { margin: 0 34px 4px 0; font: 700 19px/1.25 var(--font-display); }
-  #panel .sub { color: var(--dim); font-size: 12px; margin-bottom: 14px; }
-  #panel .sub code { color: var(--fg-soft); }
-  #panel .close {
-    position: absolute; top: 14px; right: 14px; width: 30px; height: 30px;
-    background: none; border: 1px solid transparent; border-radius: 9px; color: var(--dim);
-    font-size: 20px; cursor: pointer; line-height: 1;
-  }
-  #panel .close:hover { color: var(--fg); border-color: var(--line); background: var(--surface); }
-  .block { margin: 18px 0; color: var(--fg-soft); }
-  .block > .lbl {
-    font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
-    color: var(--dim); margin-bottom: 7px;
-  }
-  .ai { padding: 12px 14px; border: 1px solid rgba(255,184,107,.28); border-radius: var(--radius); background: rgba(255,184,107,.07); }
-  .ai .lbl { color: var(--ai); }
-  .ai .lbl::before { content: "✦ "; }
-  .ai em { color: var(--dim); font-style: normal; font-size: 12px; display: block; }
-  .usefulness-text { color: var(--fg); font-size: 13px; line-height: 1.55; white-space: pre-line; }
-  .usefulness-error { color: var(--warn); font-size: 12px; margin-top: 8px; }
-  .usefulness-error .text-button { margin-top: 0; }
-  .text-button { margin-top: 8px; padding: 0; border: 0; background: none; color: var(--ai); font-size: 12px; font-weight: 600; cursor: pointer; }
-  .text-button:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
-  .text-button:disabled { color: var(--dim); cursor: not-allowed; }
-
-  .dep { display: flex; align-items: center; gap: 9px; padding: 5px 8px; margin: 0 -8px; border-radius: var(--radius-sm); cursor: pointer; }
-  .dep:hover { background: var(--surface); }
-  .dep:hover .nm { color: var(--fg); }
-  .dep .nm { font-size: 13px; }
-  .dep .id { color: var(--dim); font-size: 11px; font-family: var(--font-mono); margin-left: auto; }
-  .pips { display: flex; gap: 2px; flex: none; }
-  .pips i { width: 6px; height: 6px; border-radius: 2px; display: block; }
-
-  .slider { display: flex; gap: 4px; margin-top: 4px; padding: 4px; background: var(--input); border: 1px solid var(--line); border-radius: 999px; }
-  .slider button {
-    flex: 1; padding: 6px 0; font-size: 12px; font-weight: 600;
-    background: transparent; color: var(--dim);
-    border: 0; border-radius: 999px; cursor: pointer;
-    transition: background-color .12s ease, color .12s ease;
-  }
-  .slider button:hover { color: var(--fg); background: var(--surface); }
-  .slider button.on { background: var(--accent); color: var(--accent-ink); }
-  .lvltext { color: var(--dim); font-size: 12px; margin-top: 8px; min-height: 18px; }
-  .lvltext b { color: var(--fg); }
-
-  .actions { display: flex; gap: 8px; margin-top: 22px; }
-  .actions button { flex: 1; padding: 10px; }
-
-  .locked { color: var(--warn); font-size: 12px; margin-top: 10px; padding: 8px 11px; border-radius: var(--radius-sm); background: rgba(255,154,112,.08); border: 1px solid rgba(255,154,112,.22); }
-
-  .load-error { max-width: 520px; margin: 60px auto; padding: 18px 22px; color: var(--warn); background: var(--bg2); border: 1px solid var(--line); border-radius: var(--radius); }
-  .field { display: grid; gap: 6px; margin: 14px 0; }
-  .field label { color: var(--fg-soft); font-size: 13px; font-weight: 600; }
-  .field textarea { min-height: 70px; resize: vertical; }
-  .calibration-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
-  .calibration-card {
-    display: flex; align-items: flex-start; gap: 9px; padding: 10px 12px;
-    border: 1px solid var(--line); border-radius: var(--radius); cursor: pointer;
-    transition: border-color .12s ease, background-color .12s ease, transform .12s ease;
-  }
-  .calibration-card:hover { border-color: var(--line-strong); transform: translateY(-1px); }
-  .calibration-card:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
-  .calibration-card input { margin-top: 3px; accent-color: var(--accent); }
-  .calibration-card code { color: var(--dim); font-size: 11px; }
-  .review-list { max-height: 240px; overflow-y: auto; margin-top: 12px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-  .review-row { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; font-size: 13px; }
-  .review-row + .review-row { border-top: 1px dashed var(--line); }
-  .review-row b { color: var(--accent); font-family: var(--font-mono); white-space: nowrap; }
-  @media (max-width: 1180px) { .hint { display: none; } }
-  @media (max-width: 700px) {
-    .brand small, .chips { display: none; }
-    #search { flex: 1 1 auto; width: auto; min-width: 0; }
-    #panel { width: 100%; }
-    .calibration-grid { grid-template-columns: 1fr; }
-  }
-</style>
+<link rel="stylesheet" href="tree.css">
 </head>
 <body>
 
@@ -159,10 +24,10 @@
   <canvas id="minimap" class="floating" width="440" height="220"></canvas>
   <div id="legend" class="floating">
     <b>Tudásszint</b>
-    <div class="row"><span class="sw" style="background:transparent"></span> 0 — nem ismerem</div>
-    <div class="row"><span class="sw" style="background:rgba(11,132,214,.35)"></span> 2 — értem</div>
-    <div class="row"><span class="sw" style="background:#0B84D6"></span> 4 — biztos tudom</div>
-    <div class="row"><span class="sw" style="background:#131729;border-color:#2e3552;border-style:dashed"></span> zárolt</div>
+    <div class="row"><span class="sw level-0"></span> 0 — nem ismerem</div>
+    <div class="row"><span class="sw level-2"></span> 2 — értem</div>
+    <div class="row"><span class="sw level-4"></span> 4 — biztos tudom</div>
+    <div class="row"><span class="sw locked"></span> zárolt</div>
   </div>
   <div id="tip" class="floating"></div>
 </div>

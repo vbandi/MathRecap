@@ -102,8 +102,8 @@ export function mount(root) {
       const chip = chips.get(n);
       chip.style.transform = `translate(${slot.x}px, ${slot.y}px)`;
       const isSelected = selected.includes(n);
-      chip.querySelector("circle").setAttribute("style", isSelected ? "fill:var(--accent);stroke:none" : "fill:var(--surface);stroke:var(--line-strong)");
-      chip.querySelector("text").setAttribute("style", isSelected ? "fill:var(--accent-ink);font-weight:700" : "fill:var(--dim)");
+      chip.querySelector("circle").style.cssText = isSelected ? "fill:var(--accent);stroke:none" : "fill:var(--surface);stroke:var(--line-strong)";
+      chip.querySelector("text").style.cssText = isSelected ? "fill:var(--accent-ink);font-weight:700" : "fill:var(--dim)";
     }
 
     const symbol = intersection ? "∩" : "∪";

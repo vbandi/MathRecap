@@ -143,8 +143,8 @@ export function mount(root) {
 
   function paint(circle, mark, visible) {
     const fill = mark === true ? "var(--il-green)" : mark === false ? "var(--il-red)" : "var(--surface)";
-    circle.setAttribute("style", `fill:${fill};stroke:${mark === undefined ? "var(--line-strong)" : "none"}`);
-    circle.nextElementSibling.setAttribute("style", mark === undefined ? "fill:var(--fg-soft)" : "fill:#fff;font-weight:700");
+    circle.style.cssText = `fill:${fill};stroke:${mark === undefined ? "var(--line-strong)" : "none"}`;
+    circle.nextElementSibling.style.cssText = mark === undefined ? "fill:var(--fg-soft)" : "fill:#fff;font-weight:700";
     if (!visible) circle.parentNode.style.pointerEvents = "none";
   }
 

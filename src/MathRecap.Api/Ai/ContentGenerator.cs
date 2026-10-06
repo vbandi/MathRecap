@@ -28,16 +28,15 @@ public sealed class ContentGenerator(OpenRouterClient openRouter, Prompts prompt
         var issues = ModelOutput.ValidateWorksheet(worksheet, diagnosticSkillIds);
         if (issues.Count == 0) return worksheet!;
 
-        // Issue messages may quote model output, so they are logged at Debug level only.
+        // Only the count is logged: issue messages may quote model output, which can echo the learner's
+        // profile or request.
         logger.LogInformation("The worksheet failed validation with {IssueCount} issues; asking for a correction.", issues.Count);
-        logger.LogDebug("Worksheet validation issues: {Issues}", issues);
         var correctionMessages = prompts.WorksheetCorrection(profile, request.Request, request.Skill, worksheet, [.. issues.Take(MaxReportedIssues)]);
         var corrected = await CompleteAsync(ModelOutput.Worksheet, "worksheet", correctionMessages, cancellationToken);
         var remainingIssues = ModelOutput.ValidateWorksheet(corrected, diagnosticSkillIds);
         if (remainingIssues.Count == 0) return corrected!;
 
         logger.LogWarning("The corrected worksheet failed validation too, with {IssueCount} issues.", remainingIssues.Count);
-        logger.LogDebug("Corrected worksheet validation issues: {Issues}", remainingIssues);
         throw new ApiException(StatusCodes.Status502BadGateway, "invalid_upstream_response", "Az OpenRouter feladatlapja hiányos vagy érvénytelen volt.");
     }
 

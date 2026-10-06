@@ -19,8 +19,8 @@ function chipGroup(parent, n, scale = 1) {
   return { group, circle, text };
 }
 function paintChip(chip, highlighted) {
-  chip.circle.setAttribute("style", highlighted ? "fill:var(--accent);stroke:none" : "fill:var(--surface);stroke:var(--line-strong)");
-  chip.text.setAttribute("style", highlighted ? "fill:var(--accent-ink);font-weight:700" : "fill:var(--dim)");
+  chip.circle.style.cssText = highlighted ? "fill:var(--accent);stroke:none" : "fill:var(--surface);stroke:var(--line-strong)";
+  chip.text.style.cssText = highlighted ? "fill:var(--accent-ink);font-weight:700" : "fill:var(--dim)";
 }
 
 export function mount(root) {

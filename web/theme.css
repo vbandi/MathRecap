@@ -98,6 +98,8 @@ kbd {
 }
 .account-menu-item:hover, .account-menu-item:focus-visible { background: var(--surface); }
 .account-menu-item:disabled { color: var(--dim); cursor: wait; }
+.account-menu-footer { display: grid; margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--line); }
+.account-menu-minor { padding: 6px 10px; color: var(--dim); font-size: 12.5px; }
 @media (max-width: 700px) {
   .topbar { gap: 8px; padding: 0 12px; }
   .topbar .btn { padding: 6px 11px; }

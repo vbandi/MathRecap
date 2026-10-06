@@ -94,7 +94,7 @@ export function mount(root) {
     const inSample = new Set(sample);
     dots.forEach((dot, i) => {
       const yes = people[i].yes;
-      dot.setAttribute("style", `fill:${yes ? PALETTE.green : PALETTE.red};opacity:${sample.length && !inSample.has(i) ? 0.22 : 1};${inSample.has(i) ? "stroke:var(--fg);stroke-width:2" : ""}`);
+      dot.style.cssText = `fill:${yes ? PALETTE.green : PALETTE.red};opacity:${sample.length && !inSample.has(i) ? 0.22 : 1};${inSample.has(i) ? "stroke:var(--fg);stroke-width:2" : ""}`;
     });
     const last = estimates.at(-1);
     sampleText.replaceChildren("a minta becslése: ", slot(sample.length ? `${formatNumber(last * 100, 1)} % igen` : "–", 14, { align: "left" }));
